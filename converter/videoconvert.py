@@ -1,5 +1,5 @@
 # app/services/converters/video.py
-import ffmpeg
+import ffmpeg as ff
 import tempfile
 import os
 
@@ -63,7 +63,7 @@ def convert_video(input_bytes: bytes, target_format: str, remove_metadata: bool 
         output_options["b:v"] = bitrate
 
     ffmpeg_cmd = (
-        ffmpeg
+        ff  # Use the renamed import
         .input(temp_input.name)
         .output(output_path, **output_options)
         .run_async(overwrite_output=True)

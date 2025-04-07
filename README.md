@@ -1,6 +1,6 @@
-# ConvertIFile API
+# ConvertiFile API
 
-ConvertIFile is a powerful file conversion API built with FastAPI and Celery that allows you to convert files between various formats:
+ConvertiFile is a powerful file conversion API built with FastAPI and Celery that allows you to convert files between various formats:
 
 - **Images**: Convert between JPG, PNG, WebP, GIF, BMP, and more
 - **Audio**: Convert between MP3, WAV, OGG, FLAC, and more
@@ -13,8 +13,7 @@ ConvertIFile is a powerful file conversion API built with FastAPI and Celery tha
 - **Progress Tracking**: Track the status of your conversions
 - **Metadata Removal**: Optionally strip metadata from files
 - **Simple API**: Easy-to-use REST API
-- **Web Interface**: Built-in test interface for quick conversions
-- **Extensible**: Easy to add new conversion types
+- **Web Interface**: Built-in test interface
 
 ## Prerequisites
 
@@ -81,14 +80,30 @@ Make sure Redis is running on your system.
 
 #### On Linux/macOS:
 ```bash
-redis-server
+sudo service redis-server start
 ```
 
 #### On Windows:
-Start Redis from the Windows Service Manager or run:
+Recommended to use WLS 
+
 ```bash
-redis-server.exe
+wls --install
 ```
+
+Then open Ubuntu's Terminal
+
+```bash
+sudo apt update
+sudo apt install redis-server
+sudo service redis-server start
+```
+
+Then check whether it returns a response `PONG`
+
+```bash
+redis-cli ping
+```
+
 
 ### 2. Start Celery worker
 
@@ -99,7 +114,7 @@ celery -A celery_workers worker --loglevel=info
 ### 3. Start the FastAPI server
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --port 8000
 ```
 
 ## API Endpoints

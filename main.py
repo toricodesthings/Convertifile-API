@@ -97,4 +97,4 @@ logger.info("ConvertIFile API initialized successfully")
 @app.get("/", tags=["Root"])
 def read_root():
     logger.info("Root endpoint accessed - serving test interface")
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+    return FileResponse("static\index.html")

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConvertIFile API Tester</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        select, input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+        }
+        button, .download-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        button:hover, .download-btn:hover {
+            background-color: #45a049;
+        }
+        #status, #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            min-height: 100px;
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 5px solid #3498db;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .hidden {
+            display: none;
+        }
+        .error {
+            color: #d9534f;
+            font-weight: bold;
+        }
+        .success {
+            color: #5cb85c;
+            font-weight: bold;
+        }
+        #debug {
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            background: #f5f5f5;
+            padding: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>ConvertIFile API Tester</h1>
+    
+    <div class="container">
+        <h2>File Conversion</h2>
+        <form id="conversionForm">
+            <div>
+                <label for="file">Select File:</label>
+                <input type="file" id="file" required>
+            </div>
+            <div>
+                <label for="format">Convert To:</label>
+                <select id="format" required>
+                    <optgroup label="Images">
+                        <option value="jpeg">JPG</option>
+                        <option value="png">PNG</option>
+                        <option value="webp">WebP</option>
+                        <option value="gif">GIF</option>
+                        <option value="bmp">BMP</option>
+                    </optgroup>
+                    <optgroup label="Audio">
+                        <option value="mp3">MP3</option>
+                        <option value="wav">WAV</option>
+                        <option value="ogg">OGG</option>
+                        <option value="flac">FLAC</option>
+                    </optgroup>
+                    <optgroup label="Video">
+                        <option value="mp4">MP4</option>
+                        <option value="webm">WebM</option>
+                        <option value="mkv">MKV</option>
+                    </optgroup>
+                    <optgroup label="Documents">
+                        <option value="pdf">PDF</option>
+                        <option value="txt">TXT</option>
+                        <option value="docx">DOCX</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div>
+                <label>
+                    <input type="checkbox" id="removeMetadata">
+                    Remove Metadata
+                </label>
+            </div>
+            <button type="submit">Convert File</button>
+        </form>
+    </div>
+    
+    <div class="container">
+        <h2>Conversion Status</h2>
+        <div id="status">No conversion in progress</div>
+        <div id="loader" class="loader hidden"></div>
+    </div>
+    
+    <div class="container">
+        <h2>Result</h2>
+        <div id="result">
+            No results available yet
+        </div>
+    </div>
+    
+    <div id="debug"></div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('conversionForm');
+            const statusDiv = document.getElementById('status');
+            const resultDiv = document.getElementById('result');
+            const loaderElement = document.getElementById('loader');
+            const debugDiv = document.getElementById('debug');
+            
+            let taskId = null;
+            let statusCheckInterval = null;
+            let retryCount = 0;
+            const MAX_RETRIES = 10; 
+            
+            // Show debug info during development
+            debugDiv.style.display = 'block';
+            
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // Reset retry counter and task ID
+                retryCount = 0;
+                taskId = null;
+                
+                const fileInput = document.getElementById('file');
+                const formatSelect = document.getElementById('format');
+                const removeMetadata = document.getElementById('removeMetadata').checked;
+                
+                if (!fileInput.files || !fileInput.files[0]) {
+                    alert('Please select a file to convert');
+                    return;
+                }
+                
+                const file = fileInput.files[0];
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('convert_to', formatSelect.value);
+                formData.append('remove_metadata', removeMetadata);
+                
+                // Show loader
+                loaderElement.classList.remove('hidden');
+                statusDiv.textContent = 'Starting conversion...';
+                resultDiv.textContent = 'Waiting for conversion to complete...';
+                
+                try {
+                    const response = await fetch('/convertifileapp/convert', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Error ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    taskId = data.task_id;
+                    
+                    statusDiv.textContent = `Conversion started. Task ID: ${taskId}`;
+                    
+                    // Start polling for status
+                    if (statusCheckInterval) clearInterval(statusCheckInterval);
+                    statusCheckInterval = setInterval(checkStatus, 2000);
+                } catch (error) {
+                    statusDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                    loaderElement.classList.add('hidden');
+                    console.error(error);
+                }
+            });
+            
+            async function checkStatus() {
+                if (!taskId) return;
+                
+                // Increment retry counter
+                retryCount++;
+                
+                // Stop checking after max retries
+                if (retryCount > MAX_RETRIES) {
+                    debugDiv.textContent += `\nStopped polling after ${MAX_RETRIES} attempts`;
+                    statusDiv.innerHTML = `<span class="error">Status check timed out. Your file might be ready. Check the <a href="/convertifileapp/result/${taskId}" target="_blank">result directly</a>.</span>`;
+                    loaderElement.classList.add('hidden');
+                    clearInterval(statusCheckInterval);
+                    return;
+                }
+                
+                debugDiv.textContent = `Checking status attempt #${retryCount}...`;
+                
+                try {
+                    const response = await fetch(`/convertifileapp/status/${taskId}`);
+                    if (!response.ok) {
+                        throw new Error(`Error ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    debugDiv.textContent += `\nResponse: ${JSON.stringify(data)}`;
+                    
+                    // Handle various status responses
+                    if (data.status === 'completed' || data.state === 'completed' || data.status === 'SUCCESS' || data.state === 'SUCCESS') {
+                        statusDiv.innerHTML = `<span class="success">Conversion completed!</span>`;
+                        loaderElement.classList.add('hidden');
+                        
+                        // Display download link
+                        const fileName = data.filename || data.original_name || `converted_file.${document.getElementById('format').value}`;
+                        const fileId = data.file_id || taskId;
+                        
+                        resultDiv.innerHTML = `
+                            <p>Your file is ready for download.</p>
+                            <a href="/convertifileapp/result/${fileId}" class="download-btn" download="${fileName}">
+                                Download ${fileName}
+                            </a>
+                        `;
+                        
+                        clearInterval(statusCheckInterval);
+                        statusCheckInterval = null;
+                        
+                    } else if (data.status === 'failed' || data.state === 'failed' || data.status === 'FAILURE' || data.state === 'FAILURE') {
+                        statusDiv.innerHTML = `<span class="error">Conversion failed: ${data.error || data.traceback || 'Unknown error'}</span>`;
+                        loaderElement.classList.add('hidden');
+                        clearInterval(statusCheckInterval);
+                        statusCheckInterval = null;
+                    } else if (data.status === 'pending' || data.state === 'pending' || data.status === 'PENDING' || data.state === 'PENDING') {
+                        // Task is still in the queue
+                        statusDiv.textContent = `Conversion in queue... (${data.status || data.state})`;
+                    } else if (data.status === 'started' || data.state === 'started' || data.status === 'STARTED' || data.state === 'STARTED') {
+                        // Task is running
+                        statusDiv.textContent = `Conversion in progress... (${data.status || data.state})`;
+                    } else {
+                        // Unknown status
+                        statusDiv.textContent = `Conversion status: ${data.status || data.state || 'unknown'}`;
+                        debugDiv.textContent += `\nUnknown status: ${JSON.stringify(data)}`;
+                    }
+                    
+                } catch (error) {
+                    debugDiv.textContent += `\nError: ${error.message}`;
+                    statusDiv.innerHTML = `<span class="error">Error checking status: ${error.message}</span>`;
+                    console.error(error);
+                    
+                    // Don't stop checking on errors, it might be temporary
+                    if (retryCount > 5 && statusCheckInterval) {
+                        clearInterval(statusCheckInterval);
+                        statusCheckInterval = setInterval(checkStatus, 5000); // Slow down polling on repeated errors
+                    }
+                }
+            }
+            
+            // Function to directly check if a file exists
+            async function checkFileExists(fileId) {
+                try {
+                    const response = await fetch(`/convertifileapp/result/${fileId}`, { method: 'HEAD' });
+                    return response.ok;
+                } catch (error) {
+                    return false;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

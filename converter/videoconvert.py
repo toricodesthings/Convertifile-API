@@ -1,7 +1,6 @@
 # app/services/converters/video.py
 import ffmpeg as ff
-import tempfile
-import os
+import os, tempfile
 
 def convert_video(input_bytes: bytes, target_format: str, remove_metadata: bool = False, 
                   codec: str = None, crf: int = 23, preset: str = "fast", 

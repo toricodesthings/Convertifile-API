@@ -1,5 +1,4 @@
-# filepath: c:\Users\Shep\Desktop\API Apps\convertifile-api\celery_workers.py
-# celery_worker.py
+"""Celery worker initialization and task discovery."""
 
 from workers.celery_app import celery
 
@@ -8,3 +7,5 @@ app = celery
 
 # Celery will automatically discover tasks in the specified modules
 import workers.tasks
+
+print(f"Celery worker configured with broker: {app.conf.broker_url}")

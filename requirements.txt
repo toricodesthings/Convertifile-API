@@ -1,31 +1,15 @@
-# Web Framework
-fastapi==0.104.1
-uvicorn[standard]==0.23.2
-python-multipart==0.0.6
-aiofiles==23.2.1
+celery
+fastapi
+ffmpeg_python
+loguru
+Pillow>=10.4.0
+pillow-heif>=0.13.0
+PyPDF2
+python-dotenv
+python_docx
+reportlab>=4.0.0
+uvicorn
+fastapi
+python-multipart
+redis
 
-# Async Task Queue
-celery==5.3.4
-redis==5.0.1
-
-# Converters - Image
-pillow==10.1.0
-
-# Converters - Audio/Video
-ffmpeg-python==0.2.0
-
-# Converters - Documents
-python-docx==1.0.0
-PyPDF2==3.0.1
-reportlab==4.0.7
-weasyprint==60.1
-beautifulsoup4==4.12.2
-html2text==2020.1.16
-
-# Configuration & Logging
-python-dotenv==1.0.0
-loguru==0.7.2
-
-# Monitoring & Observability
-python-logging-loki==0.3.1
-prometheus-client==0.17.1

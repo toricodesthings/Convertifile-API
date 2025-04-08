@@ -68,7 +68,6 @@ Create a `.env` file in the project root:
 ```
 CELERY_BROKER_URL=redis://localhost:6379/0
 CELERY_BACKEND_URL=redis://localhost:6379/0
-TEMP_FILE_MAX_AGE_HOURS=1
 ENVIRONMENT=development  # Change to production for production deployment
 ```
 
@@ -163,6 +162,8 @@ After starting the server, you can access the interactive API documentation at:
 - Output formats: PDF, DOCX, TXT
 
 ## Docker Support
+
+The API can be ran as a Docker Container!
 
 ### Build the Docker image:
 

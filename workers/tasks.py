@@ -23,13 +23,13 @@ def convert_file_task(self, task_id, filename, contents, convert_to, remove_meta
         # Dispatch to appropriate converter based on extension using match-case
         self.update_state(state='PROCESSING', meta={'progress': 40, 'message': f'Converting {ext} to {convert_to}'})
         match ext:
-            case "jpg" | "jpeg" | "png" | "webp" | "bmp" | "tiff" | "gif" | "ico":
+            case "jpeg" | "png" | "webp" | "bmp" | "tiff" | "gif" | "ico": 
                 result = imageconvert.convert_image(contents, convert_to, remove_metadata)
             case "mp3" | "wav" | "aac" | "flac" | "ogg" | "opus" | "m4a" | "wma" | "amr" | "ac3":
                 result = audioconvert.convert_audio(contents, convert_to, remove_metadata)
             case "mp4" | "mkv" | "mov" | "avi" | "webm" | "flv" | "wmv" | "mpeg":
                 result = videoconvert.convert_video(contents, convert_to, remove_metadata)
-            case "pdf" | "docx" | "txt":
+            case "pdf" | "docx" | "txt" | "rtf":
                 result = documentconvert.convert_document(contents, convert_to, remove_metadata)
             case _:
                 raise ValueError(f"Unsupported file type: .{ext}")

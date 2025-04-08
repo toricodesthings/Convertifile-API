@@ -1,13 +1,16 @@
-#Celery Main App and Loader
+"""Celery Main App and Configuration Loader"""
 
 from celery import Celery
-import os
 from dotenv import load_dotenv
 
-load_dotenv()  # Load variables from .env file
+# Load environment variables first (helpful for local development)
+load_dotenv()
 
-celery = Celery(
-    "convertifile",
-    broker=os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"),
-    backend=os.getenv("CELERY_BACKEND_URL", "redis://localhost:6379/0"),
-)
+# Create the Celery app with standard configuration
+celery = Celery("convertifile")
+
+# Load configuration from the dedicated config module
+celery.config_from_object('workers.celeryconfig')
+
+# Log the connection URL (helpful for debugging)
+print(f"Celery configured with broker: {celery.conf.broker_url}")

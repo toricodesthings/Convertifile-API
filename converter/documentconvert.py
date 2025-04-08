@@ -1,6 +1,5 @@
 # converter/documentconvert.py
 import io
-import os
 from PyPDF2 import PdfReader, PdfWriter
 import docx
 from docx.shared import Inches

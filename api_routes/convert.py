@@ -21,7 +21,13 @@ async def convert_file(
     message : str
     
     """
-    task_id = str(uuid4())
     contents = await file.read()
-    convert_file_task.delay(task_id, file.filename, contents, convert_to, remove_metadata)
-    return {"task_id": task_id, "message": "Conversion starting"}
+    
+    # Capture the AsyncResult and get its ID
+    result = convert_file_task.delay(file.filename, contents, convert_to, remove_metadata)
+    celery_task_id = result.id
+    
+    return {
+        "celery_id": celery_task_id,  # Celery's internal ID for precise status tracking
+        "message": "Conversion starting"
+    }

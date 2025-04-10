@@ -1,18 +1,35 @@
 # Image Converter Module
-
 from PIL import Image
 import io
 from loguru import logger
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, letter
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+    ]
+)
+
+logger.configure(
+    handlers=[
+        {"sink": "app.log", "rotation": "10 MB", "retention": "1 day"},
+        {"sink": lambda msg: print(msg, end=""), "level": "INFO"}
+    ]
+)
 
 def convert_image(
     input_bytes: bytes, 
     target_format: str, 
     remove_metadata: bool = False,
     quality: int = None,
-    optimize: bool = False,
-    bmp_compression: bool = False,
+    optimize: bool = True, # Image optimization flag
+    bmp_compression: bool = True, # BMP-specific compression
     pdf_page_size: str = 'A4',
     avif_speed: int = 6,  # AVIF-specific speed setting (0-10)
 ) -> bytes:
@@ -43,7 +60,7 @@ def convert_image(
     bytes
         The converted image data as bytes
     """
-    logger.info(f"Starting image conversion to {target_format}")
+    logger.info(f"Starting image conversion: {target_format} (remove_metadata: {remove_metadata}, quality: {quality})")
     
     # Special handling for PDF conversion
     if target_format.upper() == 'PDF':
@@ -51,6 +68,7 @@ def convert_image(
     
     try:
         with Image.open(io.BytesIO(input_bytes)) as img:
+            logger.info(f"Image opened successfully: {img.format} {img.size} {img.mode}")
             output_io = io.BytesIO()
 
             save_kwargs = {}
@@ -85,7 +103,7 @@ def convert_image(
                         save_kwargs['quality'] = 100  # Default to max quality
                     
                     # WebP lossless option
-                    if quality is not None and quality >= 95:
+                    if quality is not None and quality >= 98:
                         save_kwargs['lossless'] = True
                     
                     if optimize:
@@ -162,6 +180,14 @@ def convert_image(
             
     except Exception as e:
         logger.error(f"Image conversion error: {str(e)}", exc_info=True)
+        # More detailed error information
+        error_details = {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "format": target_format,
+            "input_size": len(input_bytes)
+        }
+        logger.error(f"Error details: {error_details}")
         raise ValueError(f"Image conversion failed: {str(e)}")
 
 def convert_image_to_pdf(input_bytes: bytes, page_size: str = 'A4') -> bytes:

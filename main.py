@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from api_routes import convert, status, health, result
 import os
 import logging
@@ -35,6 +36,16 @@ subapi = FastAPI(
     description="API for converting files between various formats",
     version="1.0.0",
 )
+
+# Add CORS middleware to subapi
+subapi.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Your React frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
+)
+
 
 # Middleware for request logging
 @subapi.middleware("http")
@@ -81,12 +92,24 @@ subapi.include_router(convert.router, prefix="/convert", tags=["Conversion"])
 subapi.include_router(status.router, prefix="/status", tags=["Task Status"])
 subapi.include_router(result.router, prefix="/result", tags=["Result"])
 
+
+
 # Mount the API @ /convertifileapp
 app = FastAPI(
     title="ConvertIFile Service",
     description="File conversion service with multiple endpoints",
     version="1.0.0",
 )
+
+# Add CORS middleware to main app as well
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Your React frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.mount("/convertifileapp/", subapi)
 
 # Mount static files

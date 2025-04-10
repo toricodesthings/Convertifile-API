@@ -13,6 +13,8 @@ result_serializer = 'json'
 timezone = 'UTC'
 enable_utc = True
 
+task_track_started = True
+
 # Set Redis visibility timeout
 broker_transport_options = {
     'visibility_timeout': 3600,  # 1 hour

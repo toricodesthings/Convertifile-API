@@ -214,7 +214,7 @@
                     if (statusCheckInterval) clearInterval(statusCheckInterval);
                     statusCheckInterval = setInterval(checkStatus, 2000);
                 } catch (error) {
-                    statusDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                    statusDiv.innerText = `<span class="error">Error: ${error.message}</span>`;
                     loaderElement.classList.add('hidden');
                     console.error(error);
                 }
@@ -229,7 +229,7 @@
                 // Stop checking after max retries
                 if (retryCount > MAX_RETRIES) {
                     debugDiv.textContent += `\nStopped polling after ${MAX_RETRIES} attempts`;
-                    statusDiv.innerHTML = `<span class="error">Status check timed out. Your file might be ready. Check the <a href="/convertifileapp/result/${taskId}" target="_blank">result directly</a>.</span>`;
+                    statusDiv.innerText = `<span class="error">Status check timed out. Your file might be ready. Check the <a href="/convertifileapp/result/${taskId}" target="_blank">result directly</a>.</span>`;
                     loaderElement.classList.add('hidden');
                     clearInterval(statusCheckInterval);
                     return;
@@ -248,14 +248,14 @@
                     
                     // Handle various status responses
                     if (data.status === 'completed' || data.state === 'completed' || data.status === 'SUCCESS' || data.state === 'SUCCESS') {
-                        statusDiv.innerHTML = `<span class="success">Conversion completed!</span>`;
+                        statusDiv.innerText = `<span class="success">Conversion completed!</span>`;
                         loaderElement.classList.add('hidden');
                         
                         // Display download link
                         const fileName = data.filename || data.original_name || `converted_file.${document.getElementById('format').value}`;
                         const fileId = data.file_id || taskId;
                         
-                        resultDiv.innerHTML = `
+                        resultDiv.innerText = `
                             <p>Your file is ready for download.</p>
                             <a href="/convertifileapp/result/${fileId}" class="download-btn" download="${fileName}">
                                 Download ${fileName}
@@ -266,7 +266,7 @@
                         statusCheckInterval = null;
                         
                     } else if (data.status === 'failed' || data.state === 'failed' || data.status === 'FAILURE' || data.state === 'FAILURE') {
-                        statusDiv.innerHTML = `<span class="error">Conversion failed: ${data.error || data.traceback || 'Unknown error'}</span>`;
+                        statusDiv.innerText = `<span class="error">Conversion failed: ${data.error || data.traceback || 'Unknown error'}</span>`;
                         loaderElement.classList.add('hidden');
                         clearInterval(statusCheckInterval);
                         statusCheckInterval = null;
@@ -284,7 +284,7 @@
                     
                 } catch (error) {
                     debugDiv.textContent += `\nError: ${error.message}`;
-                    statusDiv.innerHTML = `<span class="error">Error checking status: ${error.message}</span>`;
+                    statusDiv.innerText = `<span class="error">Error checking status: ${error.message}</span>`;
                     console.error(error);
                     
                     // Don't stop checking on errors, it might be temporary

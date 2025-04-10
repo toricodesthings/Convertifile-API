@@ -46,7 +46,7 @@ def convert_video(input_bytes: bytes, target_format: str, remove_metadata: bool 
         temp_input.write(input_bytes)
         temp_input.flush()
 
-    output_path = tempfile.mktemp(suffix=f".{target_format}")
+    output_path = tempfile.mkdtemp(suffix=f".{target_format}")
 
     # Build output options dictionary
     output_options = {}

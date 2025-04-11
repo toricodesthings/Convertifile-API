@@ -1,7 +1,10 @@
 # Task for converting files using Celery
 from workers.celery_app import celery
-from converter import imageconvert, videoconvert, audioconvert, documentconvert
-import os, time
+from converter import imageconvert, videoconvert, audioconvert, documentconvert # Utility modules for conversion
+
+import os, time, shutil
+from pathlib import Path
+from datetime import datetime
 
 # Create a reference to the same temp directory used in the result endpoint
 TEMP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "temp_files")
@@ -61,3 +64,42 @@ def convert_file_task(self, filename, contents, convert_to, remove_metadata, qua
             "status": "failed",
             "error": str(e)
         }
+        
+@celery.task(name="cleanup_temp_files")
+def cleanup_temp_files():
+    """
+    Delete files in the temp_files directory that are older than 15 minutes
+    """
+    temp_dir = Path("temp_files")
+    if not temp_dir.exists():
+        return {"status": "success", "message": "No temp directory found"}
+
+    deleted_count = 0
+    current_time = time.time()
+    timeout = 15 * 60 
+    
+    for item in temp_dir.iterdir():
+        if item.is_file():
+            file_age = current_time - item.stat().st_mtime
+            if file_age > timeout:
+                try:
+                    item.unlink()
+                    deleted_count += 1
+                except Exception as e:
+                    print(f"Error deleting file {item}: {e}")
+        
+        # Also handle subdirectories if needed
+        elif item.is_dir():
+            try:
+                dir_mtime = item.stat().st_mtime
+                if current_time - dir_mtime > timeout:
+                    shutil.rmtree(item, ignore_errors=True)
+                    deleted_count += 1
+            except Exception as e:
+                print(f"Error removing directory {item}: {e}")
+    
+    return {
+        "status": "success", 
+        "deleted_count": deleted_count,
+        "timestamp": datetime.now().isoformat()
+    }

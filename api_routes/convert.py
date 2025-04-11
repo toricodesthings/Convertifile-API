@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 import magic
 from workers.tasks import convert_file_task
-import re
+import re, unicodedata, os
 
 MAX_FILE_SIZE = 250 * 1024 * 1024  # 250MB
 
@@ -22,6 +22,44 @@ def is_suspicious_filename(filename: str) -> bool:
             return True
     
     return False
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize a filename to ensure it's safe and clean.
+    
+    1. Normalize unicode characters 
+    2. Remove non-alphanumeric chars except for safe ones
+    3. Limit length
+    4. Ensure filename doesn't start/end with spaces or periods
+    """
+    # Normalize unicode characters
+    filename = unicodedata.normalize('NFKD', filename)
+    
+    # Get name and extension parts
+    name_parts = filename.rsplit('.', 1)
+    name = name_parts[0]
+    extension = name_parts[1].lower() if len(name_parts) > 1 else ''
+    
+    # Replace dangerous characters with underscores, keeping safe chars
+    name = re.sub(r'[^\w\-. ]', '_', name)
+    
+    # Remove consecutive underscores/spaces
+    name = re.sub(r'_{2,}', '_', name)
+    name = re.sub(r' {2,}', ' ', name)
+    
+    # Trim to reasonable length (100 chars for name + extension)
+    max_name_length = 100 - len(extension) - 1 if extension else 100
+    name = name[:max_name_length]
+    
+    # Ensure name doesn't start/end with space, period, or underscore
+    name = name.strip(' ._')
+    
+    # If name is empty after sanitization, use a default
+    if not name:
+        name = "converted_image"
+    
+    # Reconstruct filename with extension if present
+    return f"{name}.{extension}" if extension else name
 
 router = APIRouter()
 
@@ -52,15 +90,17 @@ async def convert_file(
     if is_suspicious_filename(file.filename):
         raise HTTPException(
             status_code=400,
-            detail="Suspicious filename detected"
+            detail="Unallowed filename."
         )
+        
+    sanitized_filename = sanitize_filename(file.filename)
     
     contents = await file.read()
     file_size = len(contents)
     if file_size > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=413,
-            detail=f"File too large. Maximum size allowed is {MAX_FILE_SIZE/(1024*1024)}MB"
+            detail=f"File too large. Max size allowed is {MAX_FILE_SIZE/(1024*1024)}MB"
         )
     
     # 4. Verify MIME type
@@ -89,7 +129,7 @@ async def convert_file(
             )
     
     # Capture the AsyncResult and get its ID
-    result = convert_file_task.delay(file.filename, contents, convert_to, remove_metadata, quality, optimize, bmp_compression, pdf_page_size, avif_speed)
+    result = convert_file_task.delay(sanitize_filename, contents, convert_to, remove_metadata, quality, optimize, bmp_compression, pdf_page_size, avif_speed)
     celery_task_id = result.id
     return {
         "celery_id": celery_task_id,

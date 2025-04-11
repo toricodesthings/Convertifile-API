@@ -1,5 +1,4 @@
-"""Celery Main App and Configuration Loader"""
-
+# Celery Main App and Configuration Loader
 from celery import Celery
 from dotenv import load_dotenv
 

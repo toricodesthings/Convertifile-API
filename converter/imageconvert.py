@@ -2,8 +2,7 @@
 from PIL import Image
 import io
 from loguru import logger
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4, letter
+import pymupdf  # PyMuPDF
 import logging
 
 # Configure logging
@@ -192,65 +191,51 @@ def convert_image(
 
 def convert_image_to_pdf(input_bytes: bytes, page_size: str = 'A4') -> bytes:
     """
-    Convert an image to PDF format.
-    
-    Parameters:
-    -----------
-    input_bytes : bytes
-        The source image data as bytes
-    page_size : str, default='A4'
-        Page size for the PDF ('A4' or 'letter')
-        
-    Returns:
-    --------
-    bytes
-        The converted PDF data as bytes
+    Convert an image to PDF using PyMuPDF (faster and more secure than ReportLab)
     """
     logger.info(f"Converting image to PDF with page size {page_size}")
     
     try:
-        # Create PDF in memory
-        output_io = io.BytesIO()
+        # Create a new PDF with a single page
+        pdf_doc = pymupdf.open()  # Using the imported pymupdf instead of fitz
         
-        # Choose the page size
-        pdf_page_size = A4 if page_size.upper() == 'A4' else letter
-        
-        # Create the PDF canvas
-        pdf = canvas.Canvas(output_io, pagesize=pdf_page_size)
-        
-        # Open the image
+        if page_size.upper() == 'A4':
+            # A4 in points (595 x 842)
+            page = pdf_doc.new_page(width=595, height=842)
+        else:
+            # Letter size in points (612 x 792)
+            page = pdf_doc.new_page(width=612, height=792)
+            
+        # Load the image with PIL first to handle different formats
         with Image.open(io.BytesIO(input_bytes)) as img:
-            # Get PDF page dimensions
-            page_width, page_height = pdf_page_size
+            # Convert to RGB if RGBA (transparent images)
+            if img.mode == 'RGBA':
+                background = Image.new('RGB', img.size, (255, 255, 255))
+                background.paste(img, mask=img.split()[3])
+                img = background
             
-            # Calculate scaling to fit the image on the page with margins
-            margin = 50  # Points (1/72 inch)
-            max_width = page_width - 2 * margin
-            max_height = page_height - 2 * margin
-            
-            img_width, img_height = img.size
-            width_ratio = max_width / img_width
-            height_ratio = max_height / img_height
-            scale_ratio = min(width_ratio, height_ratio)
-            
-            # Calculate new dimensions
-            new_width = img_width * scale_ratio
-            new_height = img_height * scale_ratio
-            
-            # Center image on page
-            x_offset = (page_width - new_width) / 2
-            y_offset = (page_height - new_height) / 2
-            
-            # Save image to temporary BytesIO for PDF inclusion
+            # Save as PNG in memory
             temp_img_io = io.BytesIO()
             img.save(temp_img_io, format='PNG')
             temp_img_io.seek(0)
+            img_data = temp_img_io.read()
             
-            # Draw the image on the PDF
-            pdf.drawImage(temp_img_io, x_offset, y_offset, width=new_width, height=new_height)
+        # Insert image into PDF with proper scaling
+        rect = page.rect  # Full page rect
+        # Create margin (50 points)
+        margin = 50
+        rect.x0 += margin
+        rect.y0 += margin
+        rect.x1 -= margin
+        rect.y1 -= margin
         
-        # Save the PDF
-        pdf.save()
+        # Insert the image, adjusting to fit within the defined rectangle
+        page.insert_image(rect, stream=img_data)
+        
+        # Save the PDF to a bytes buffer
+        output_io = io.BytesIO()
+        pdf_doc.save(output_io)
+        pdf_doc.close()
         output_io.seek(0)
         
         logger.info("PDF conversion completed successfully")

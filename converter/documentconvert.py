@@ -1,14 +1,19 @@
-# converter/documentconvert.py
+# Document Converter Module
 import io
 from PyPDF2 import PdfReader, PdfWriter
 import docx
 from docx.shared import Inches
+
+SUPPORT_PDF_IMAGE = ['jpeg', 'png']
 
 def convert_document(contents, from_format, to_format, remove_metadata=False):
     """
     Convert document from one format to another.
     Currently supports limited conversions between PDF, DOCX, and TXT.
     """
+    from_format = from_format.lower()
+    to_format = to_format.lower()
+    
     input_stream = io.BytesIO(contents)
     output_stream = io.BytesIO()
     
@@ -24,9 +29,6 @@ def convert_document(contents, from_format, to_format, remove_metadata=False):
     
     # TXT to PDF
     elif from_format == 'txt' and to_format == 'pdf':
-        from reportlab.pdfgen import canvas
-        from reportlab.lib.pagesizes import letter
-        
         text = input_stream.read().decode('utf-8')
         c = canvas.Canvas(output_stream, pagesize=letter)
         
@@ -69,6 +71,10 @@ def convert_document(contents, from_format, to_format, remove_metadata=False):
             doc.add_page_break()
         
         doc.save(output_stream)
+    
+    elif from_format == 'pdf' and to_format in SUPPORT_PDF_IMAGE:
+        # Converts a given PDF to image format (JPEG/PNG)
+        return
     
     # DOCX to PDF (simple approach)
     elif from_format == 'docx' and to_format == 'pdf':

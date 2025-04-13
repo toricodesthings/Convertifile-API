@@ -93,7 +93,6 @@ subapi.include_router(status.router, prefix="/status", tags=["Task Status"])
 subapi.include_router(result.router, prefix="/result", tags=["Result"])
 
 
-
 # Mount the API @ /convertifileapp
 app = FastAPI(
     title="ConvertIFile Service",
@@ -104,7 +103,7 @@ app = FastAPI(
 # Add CORS middleware to main app as well
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Your React frontend URL
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

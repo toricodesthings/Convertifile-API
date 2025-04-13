@@ -11,13 +11,13 @@ TEMP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 SUPPORTED_EXTENSIONS = {
-    "images": ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'ico', 'aiff')
+    "images": ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'ico', 'aiff', 'heic', 'avif', 'pdf', 'ppm', 'pbm', 'tga', 'sgi'),
 }
 
 # Task for converting files using Celery
 # This task will be called by the FastAPI app when a conversion request is made
 @celery.task(bind=True)
-def convert_file_task(self, filename, contents, convert_to, remove_metadata, quality, optimize, bmp_compression, pdf_page_size, avif_speed):
+def convert_file_task(self, filename, contents, convert_to, conversion_settings):
     task_id = self.request.id
     self.update_state(state='processing', meta={'progress': 15, 'message': 'Preparing'})
     ext = filename.split('.')[-1].lower() # Get the file extension
@@ -35,13 +35,13 @@ def convert_file_task(self, filename, contents, convert_to, remove_metadata, qua
         self.update_state(state='processing', meta={'progress': 50, 'message': f'Converting to {convert_to}'})
         match ext:
             case _ if ext in SUPPORTED_EXTENSIONS["images"]:
-                result = imageconvert.convert_image(contents, convert_to, remove_metadata, quality, optimize, bmp_compression, pdf_page_size, avif_speed)
+                result = imageconvert.convert_image(contents, convert_to, conversion_settings)
             case _ if ext in SUPPORTED_EXTENSIONS["audio"]:
-                result = audioconvert.convert_audio(contents, convert_to, remove_metadata)
+                result = audioconvert.convert_audio(contents, convert_to, conversion_settings)
             case _ if ext in SUPPORTED_EXTENSIONS["video"]:
-                result = videoconvert.convert_video(contents, convert_to, remove_metadata)
+                result = videoconvert.convert_video(contents, convert_to, conversion_settings)
             case _ if ext in SUPPORTED_EXTENSIONS["documents"]:
-                result = documentconvert.convert_document(contents, convert_to, remove_metadata)
+                result = documentconvert.convert_document(contents, convert_to, conversion_settings)
             case _:
                 raise ValueError(f"Unsupported file type: .{ext}")
         

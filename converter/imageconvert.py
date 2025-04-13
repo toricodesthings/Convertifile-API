@@ -10,7 +10,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("app.log"),
+        logging.FileHandler("imgconv.log"),
         logging.StreamHandler()
     ]
 )
@@ -25,12 +25,7 @@ logger.configure(
 def convert_image(
     input_bytes: bytes, 
     target_format: str, 
-    remove_metadata: bool = False,
-    quality: int = None,
-    optimize: bool = True, # Image optimization flag
-    bmp_compression: bool = True, # BMP-specific compression
-    pdf_page_size: str = 'A4',
-    avif_speed: int = 6,  # AVIF-specific speed setting (0-10)
+    settings: dict
 ) -> bytes:
     """
     Convert image to target format with optional compression and optimize settings.
@@ -41,29 +36,25 @@ def convert_image(
         The source image data as bytes
     target_format : str
         The target image format (e.g., 'jpg', 'png', 'webp', 'avif', 'pdf')
-    remove_metadata : bool, default=False
-        Whether to strip metadata from the image
-    quality : int, optional
-        Quality level (1-100): higher value means better quality but larger file size
-    optimize : bool, default=False
-        Whether to optimize the image (format-dependent)
-    bmp_compression : bool, default=False
-        Whether to use RLE compression for BMP images
-    pdf_page_size : str, default='A4'
-        Page size for PDF conversion ('A4' or 'letter')
-    avif_speed : int, default=6
-        AVIF encoder speed (0-10): higher is faster but lower quality
+    settings : dict
+        Dictionary containing conversion settings:
+        - remove_metadata (bool): Whether to strip metadata from the image
+        - quality (int): Quality level (1-100)
+        - optimize (bool): Whether to optimize the image
+        - bmp_compression (bool): Whether to use RLE compression for BMP images
+        - pdf_page_size (str): Page size for PDF conversion ('A4' or 'letter')
+        - avif_speed (int): AVIF encoder speed (0-10)
         
     Returns:
     --------
     bytes
         The converted image data as bytes
     """
-    logger.info(f"Starting image conversion: {target_format} (remove_metadata: {remove_metadata}, quality: {quality})")
+    logger.info(f"Starting image conversion: {target_format} with settings {settings}")
     
     # Special handling for PDF conversion
     if target_format.upper() == 'PDF':
-        return convert_image_to_pdf(input_bytes, page_size=pdf_page_size)
+        return convert_image_to_pdf(input_bytes, page_size=settings["pdf_page_size"])
     
     try:
         with Image.open(io.BytesIO(input_bytes)) as img:
@@ -71,7 +62,7 @@ def convert_image(
             output_io = io.BytesIO()
 
             save_kwargs = {}
-            if remove_metadata:
+            if settings["remove_metadata"]:
                 img.info = {}
             
             # Normalize target format for saving
@@ -87,66 +78,67 @@ def convert_image(
                         # Paste the image using the alpha channel as mask
                         background.paste(img, mask=img.split()[3])  # 3 is the alpha channel
                         img = background
-                    
+                        
+                    # JPEG optimization settings
+                    if settings["optimize"]:
+                        save_kwargs['optimize'] = True
                     # JPEG quality: 1-100 (higher is better quality but larger file)
-                    if quality is not None:
-                        save_kwargs['quality'] = min(max(1, quality), 100)
+                    if "quality" in settings and settings["quality"] is not None:
+                        save_kwargs['quality'] = settings["quality"]
                     else:
-                        save_kwargs['quality'] = 100  # Default to max quality
+                        save_kwargs['quality'] = 90 
                 
                 case 'WEBP':
                     # WebP quality: 1-100 (higher is better quality but larger file)
-                    if quality is not None:
-                        save_kwargs['quality'] = min(max(1, quality), 100)
-                    else:
-                        save_kwargs['quality'] = 100  # Default to max quality
+                    if settings["quality"] is not None:
+                        save_kwargs['quality'] = settings["quality"]
                     
                     # WebP lossless option
-                    if quality is not None and quality >= 98:
+                    if not settings["compression"]:
                         save_kwargs['lossless'] = True
                     
-                    if optimize:
-                        save_kwargs['method'] = 6  # Higher value = better compression but slower
+                    if settings["optimize"]:
+                        save_kwargs['method'] = 6  
                 
                 case 'PNG':
                     # PNG uses lossless compression
-                    if optimize:
+                    if settings["optimize"]:
                         save_kwargs['optimize'] = True
-                    if quality is not None:
+                        
+                    if not settings["compression"] and settings["quality"] is not None:
                         # Convert quality (1-100) to compression level (0-9)
-                        compression_level = max(0, min(9, 9 - (quality // 11)))
+                        compression_level = max(0, min(9, 9 - (settings["quality"] // 11)))
                         save_kwargs['compress_level'] = compression_level
                 
                 case 'TIFF':
-                    # TIFF compression method selection based on quality
-                    if quality is not None:
-                        save_kwargs['compression'] = 'jpeg' if quality < 90 else 'lzw'
+                    if settings["quality"] is not None:
+                        save_kwargs['compression'] = 'jpeg' if settings["quality"] < 90 else 'lzw'
                     else:
                         save_kwargs['compression'] = 'lzw'  # Default compression
                 
                 case 'GIF':
-                    if optimize:
+                    if settings["optimize"]:
                         save_kwargs['optimize'] = True
                 
                 case 'BMP':
-                    if bmp_compression and img.mode in ['RGB', 'RGBA']:
+                    if settings["bmp_compression"] and img.mode in ['RGB', 'RGBA']:
                         save_kwargs['compression'] = 1  # RLE compression
                 
                 case 'AVIF':
                     # AVIF quality settings
-                    if quality is not None:
-                        save_kwargs['quality'] = min(max(1, quality), 100)
+                    if settings["quality"] is not None:
+                        save_kwargs['quality'] = min(max(1, settings["quality"]), 100)
                     else:
                         save_kwargs['quality'] = 75  # Default quality
                     
                     # AVIF encoder speed: 0-10 (slower = better quality)
-                    save_kwargs['speed'] = avif_speed
+                    save_kwargs['speed'] = settings["avif_speed"]
                 
                 case 'HEIF' | 'HEIC':
                     pil_format = 'HEIF'  # Standardize the format name
                     # HEIF quality settings
-                    if quality is not None:
-                        save_kwargs['quality'] = min(max(1, quality), 100)
+                    if settings["quality"] is not None:
+                        save_kwargs['quality'] = settings["quality"]
                     else:
                         save_kwargs['quality'] = 80  # Default quality
                 
@@ -155,21 +147,12 @@ def convert_image(
                     # Resize to common icon sizes if larger than 256x256
                     if img.width > 256 or img.height > 256:
                         img.thumbnail((256, 256), Image.LANCZOS)
-                
-                case 'PPM':
-                    # PPM format settings (portable pixmap)
-                    pass  # No special settings needed
-                
-                case 'PCX':
-                    # PCX format settings
-                    pass  # No special settings needed
-                
+                        
                 case 'TGA':
-                    # TGA format settings
-                    pass  # No special settings needed
-                
-                case 'SGI':
-                    # SGI format settings
+                    if settings["tga_compression"]:
+                        save_kwargs['compression'] = "tga_rle"  # TGA Compression
+                    
+                case 'PPM' | 'PBM' | 'PNM' | 'PGM' | 'SGI':
                     pass  # No special settings needed
             
             logger.info(f"Saving image with format {pil_format}, options: {save_kwargs}")

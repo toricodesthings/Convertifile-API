@@ -68,12 +68,14 @@ async def convert_file(
     file: UploadFile = File(...),
     convert_to: str = Form(...),
     remove_metadata: bool = Form(False),
+    compression: bool = Form(False),
     quality: int = Form(None),
     optimize: bool = Form(True),
     bmp_compression: bool = Form(True),
+    tga_compression: bool = Form(True),
     pdf_page_size: str = Form("A4"),
     avif_speed: int = Form(6),
-):
+) -> dict:
     
     """
     Convert a file to a different format using a background task.
@@ -128,8 +130,19 @@ async def convert_file(
                 detail="File rejected due to possible malicious content"
             )
     
-    # Capture the AsyncResult and get its ID
-    result = convert_file_task.delay(sanitize_filename, contents, convert_to, remove_metadata, quality, optimize, bmp_compression, pdf_page_size, avif_speed)
+    conversion_settings = {
+        "remove_metadata": remove_metadata,
+        "compression": compression,
+        "quality": quality,
+        "optimize": optimize,
+        "bmp_compression": bmp_compression,
+        "tga_compression": tga_compression,
+        "pdf_page_size": pdf_page_size,
+        "avif_speed": avif_speed
+    }
+    
+    # Capture the AsyncResult and get its ID, run the task
+    result = convert_file_task.delay(sanitized_filename, contents, convert_to, conversion_settings)
     celery_task_id = result.id
     return {
         "celery_id": celery_task_id,

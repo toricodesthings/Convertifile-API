@@ -1,5 +1,4 @@
-FROM python:3.14-rc-alpine3.20
-
+FROM python:3.14-0a7-slim
 
 # Install FFmpeg and other dependencies
 RUN apt-get update && apt-get install -y \
@@ -22,10 +21,6 @@ COPY . .
 
 # Create necessary directories
 RUN mkdir -p temp_files static
-
-# Create logs directory
-RUN mkdir -p /app/logs
-VOLUME /app/logs
 
 # Set environment variables for Python logging
 ENV PYTHONUNBUFFERED=1

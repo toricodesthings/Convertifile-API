@@ -1,9 +1,22 @@
-import ffmpeg 
-import tempfile
-import os
-import shutil
-import subprocess
+import ffmpeg, tempfile, os, subprocess, logging
 from loguru import logger
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("audioconv.log"),
+        logging.StreamHandler()
+    ]
+)
+
+logger.configure(
+    handlers=[
+        {"sink": "audioconv.log", "rotation": "10 MB", "retention": "1 day"},
+        {"sink": lambda msg: print(msg, end=""), "level": "INFO"}
+    ]
+)
 
 # Check if ffmpeg is available in PATH
 def is_ffmpeg_available():
@@ -24,36 +37,74 @@ def get_default_codec_for_format(target_format: str, lossless: bool = False) -> 
     Returns:
         Appropriate codec name for the given format
     """
-    format_lower = target_format.lower()
     
     # Ensure lossless is properly treated as boolean
     lossless = bool(lossless)
     
     # Format to codec mapping
-    if format_lower == "mp3":
-        return "libmp3lame"
-    elif format_lower == "ogg":
-        return "libvorbis"
-    elif format_lower == "opus":
-        return "libopus"
-    elif format_lower in ["aac", "m4a"]:
-        return "aac"
-    elif format_lower == "flac":
-        return "flac"
-    elif format_lower == "alac":
-        return "alac"
-    elif format_lower in ["wav", "aiff"]:
-        # Explicitly return a string codec name based on lossless boolean
-        return "pcm_s24le" if lossless else "pcm_s16le"
-    elif format_lower == "wma":
-        return "wmav2"
-    elif format_lower == "amr":
-        return "libopencore_amrnb"
-    elif format_lower == "ac3":
-        return "ac3"
-    
+    match target_format:
+        case "mp3":
+            return "libmp3lame"
+        case "ogg":
+            return "libvorbis"
+        case "opus":
+            return "libopus"
+        case "aac" | "m4a":
+            return "aac"
+        case "flac":
+            return "flac"
+        case "alac":
+            return "alac"
+        case "wav" | "aiff":
+            return "pcm_s24le" if lossless else "pcm_s16le"
+        case "wma":
+            return "wmav2"
+        case "amr":
+            return "libopencore_amrnb"
+        case "ac3":
+            return "ac3"
+        case _:
+            return "libmp3lame"
+        
     # Default to a common codec if format is unknown
     return "libmp3lame"
+
+def validate_format_codec_compatibility(target_format: str, codec: str) -> bool:
+    """
+    Validates if the codec is compatible with the target format.
+    
+    Args:
+        target_format: Target format extension
+        codec: Audio codec
+    
+    Returns:
+        True if compatible, False otherwise
+    """
+    format_codec_map = {
+        "mp3": ["libmp3lame"],
+        "ogg": ["libvorbis", "libopus"],
+        "opus": ["libopus"],
+        "aac": ["aac"],
+        "m4a": ["aac", "alac"],
+        "flac": ["flac"],
+        "alac": ["alac"],
+        "wav": ["pcm_s16le", "pcm_s24le", "pcm_f32le"],
+        "aiff": ["pcm_s16le", "pcm_s24le"],
+        "wma": ["wmav2"],
+        "amr": ["libopencore_amrnb"],
+        "ac3": ["ac3"]
+    }
+    
+    # If format isn't in our map, we'll assume compatibility
+    if target_format not in format_codec_map:
+        logger.warning(f"Format '{target_format}' is not in our compatibility database")
+        return True
+    
+    compatible = codec in format_codec_map[target_format]
+    if not compatible:
+        logger.warning(f"Codec '{codec}' may not be compatible with format '{target_format}'")
+    
+    return compatible
 
 def convert_audio(input_bytes: bytes, target_format: str, remove_metadata: bool = False,
                  codec: str = None, bitrate: str = None, sample_rate: int = None,
@@ -98,6 +149,9 @@ def convert_audio(input_bytes: bytes, target_format: str, remove_metadata: bool 
         - amr: Adaptive Multi-Rate, speech-optimized format
         - ac3: Dolby Digital audio format
     """
+    
+    target_format = target_format.lower()
+    
     # First, check if FFmpeg is available
     if not is_ffmpeg_available():
         raise RuntimeError("FFmpeg is not installed or not available in your PATH. Please install FFmpeg and make sure it's in your system PATH.")
@@ -111,11 +165,19 @@ def convert_audio(input_bytes: bytes, target_format: str, remove_metadata: bool 
         logger.warning(f"Invalid codec type: {type(codec)}. Converting to string.")
         codec = str(codec)
     
-    # Safeguard against 'False' or 'None' becoming the codec name
-    if codec.lower() in ['false', 'none', 'true']:
-        logger.warning(f"Invalid codec value: {codec}. Using default for {target_format}.")
-        codec = get_default_codec_for_format(target_format, lossless=False)
+    # Validate codec compatibility with format
+    validate_format_codec_compatibility(target_format, codec)
         
+    # Check for lossless incompatibility
+    if lossless and target_format not in ['flac', 'alac', 'wav', 'aiff']:
+        logger.warning(f"Lossless encoding requested but format '{target_format}' is typically lossy, proceeding...")
+
+    if lossless and (bitrate is not None or quality is not None):
+        bitrate = None
+        quality = None
+        logger.warning(f"Bitrate settings are ignored for lossless encoding")
+        
+    
     temp_input = None
     temp_output = None
     
@@ -158,14 +220,20 @@ def convert_audio(input_bytes: bytes, target_format: str, remove_metadata: bool 
             elif codec == "libvorbis":
                 # Vorbis quality: 0-10 (higher is better)
                 output_options["q:a"] = str(quality)
-
+                
         try:
-            # Enhanced logging to debug issues
-            logger.debug(f"Converting audio to {target_format} with codec {codec}")
-            logger.debug(f"FFmpeg options: {output_options}")
+            logger.info(f"Converting audio to {target_format} with codec {codec}")
+            logger.info(f"FFmpeg options: {output_options}")
+            
+            # Generate debug log with equivalent FFmpeg command
+            cmd_str = f"ffmpeg -i {temp_input.name} "
+            for key, value in output_options.items():
+                cmd_str += f"-{key} {value} "
+            cmd_str += temp_output.name
+            logger.debug(f"Equivalent FFmpeg command: {cmd_str}")
             
             # Log the command we're about to execute
-            print(f"Running FFmpeg: input={temp_input.name}, output={temp_output.name}, options={output_options}")
+            logger.info(f"Running FFmpeg: input={temp_input.name}, output={temp_output.name}, options={output_options}")
             
             ffmpeg_cmd = (
                 ffmpeg
@@ -183,25 +251,30 @@ def convert_audio(input_bytes: bytes, target_format: str, remove_metadata: bool 
                 raise RuntimeError(f"Output file is empty: {temp_output.name}")
                 
         except Exception as e:
-            raise RuntimeError(f"FFmpeg conversion failed: {str(e)}")
+            # Capture FFmpeg error output when available
+            stderr_msg = ""
+            try:
+                if hasattr(ffmpeg_cmd, 'stderr'):
+                    stderr_msg = ffmpeg_cmd.stderr.read().decode('utf-8', errors='replace')
+                    logger.error(f"FFmpeg stderr: {stderr_msg}")
+            except:
+                pass
+            
+            raise RuntimeError(f"FFmpeg conversion failed: {str(e)}{' - ' + stderr_msg if stderr_msg else ''}")
 
         # Read the result
         with open(temp_output.name, "rb") as f:
-            result = f.read()
+            return f.read()
 
-        return result
     except Exception as e:
+        logger.error(f"Audio conversion failed: {str(e)}")
         raise RuntimeError(f"Audio conversion failed: {str(e)}")
     finally:
-        # Clean up temp files
-        if temp_input and os.path.exists(temp_input.name):
-            try:
-                os.unlink(temp_input.name)
-            except:
-                pass
-                
-        if temp_output and os.path.exists(temp_output.name):
-            try:
-                os.unlink(temp_output.name)
-            except:
-                pass
+        # Clean up temp files with better error handling
+        for temp_file in [temp_input, temp_output]:
+            if temp_file and hasattr(temp_file, 'name') and os.path.exists(temp_file.name):
+                try:
+                    os.unlink(temp_file.name)
+                    logger.debug(f"Successfully removed temp file: {temp_file.name}")
+                except Exception as ex:
+                    logger.warning(f"Failed to remove temp file {temp_file.name}: {str(ex)}")

@@ -1,18 +1,17 @@
-FROM python:3.13.3-slim
+FROM python:3.13.3-alpine3.21
 
-# Install FFmpeg, Rust, Cargo, and other dependencies with pinned versions
-RUN apt-get update && apt-get install -y \
-    ffmpeg=7:5.1.6-0+deb12u1 \
-    build-essential \
+# Install FFmpeg, Rust, Cargo, and other dependencies with Alpine package manager
+RUN apk update && apk add --no-cache \
+    ffmpeg \
+    build-base \
     libxml2-dev \
-    libxslt1-dev \
-    libmagic1 \
-    libmagic-dev \
+    libxslt-dev \
+    file \
     curl \
+    libreoffice \
+    poppler-utils \
     && curl https://sh.rustup.rs -sSf | sh -s -- -y \
-    && . "$HOME/.cargo/env" \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && . "$HOME/.cargo/env"
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 

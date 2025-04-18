@@ -2,14 +2,16 @@ import os
 import tempfile
 import subprocess
 import logging
+from pathlib import Path
 
 import ffmpeg
 from loguru import logger
 
-# Ensure logs directory exists and use it for logging
-LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
-os.makedirs(LOG_DIR, exist_ok=True)
-LOG_FILE = os.path.join(LOG_DIR, "audioconv.log")
+# Ensure logs directory exists and use it for logging (using pathlib)
+BASE_DIR = Path(__file__).resolve().parent.parent
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = LOG_DIR / "audioconv.log"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -156,45 +158,35 @@ def convert_audio(
     if settings["lossless"] and settings["bitrate"] is not None:
         settings["bitrate"] = None
 
-    temp_input = None
     temp_output = None
 
     try:
-        # --- Write input bytes to temp file ---
-        temp_input = tempfile.NamedTemporaryFile(delete=False, suffix=".input")
-        temp_input.write(input_bytes)
-        temp_input.flush()
-        temp_input.close()
-
-        if not os.path.exists(temp_input.name) or os.path.getsize(temp_input.name) == 0:
-            raise RuntimeError(f"Input file creation failed: {temp_input.name}")
-
         # --- Prepare output temp file ---
         temp_output = tempfile.NamedTemporaryFile(delete=False, suffix=f".{target_format}")
         temp_output.close()
 
         # --- Build ffmpeg output options ---
-        output_options = build_output_options(settings, target_format)
+        output_options = build_output_options(settings)
         logger.debug(f"Using codec: '{settings['codec']}' for format: {target_format}")
         logger.info(f"Converting audio to {target_format} with codec {settings['codec']}")
         logger.info(f"FFmpeg options: {output_options}")
 
         # --- Log equivalent ffmpeg command ---
-        cmd_str = f"ffmpeg -i {temp_input.name} "
+        cmd_str = f"ffmpeg -i pipe:0 "
         for key, value in output_options.items():
             cmd_str += f"-{key} {value} "
         cmd_str += temp_output.name
         logger.debug(f"Equivalent FFmpeg command: {cmd_str}")
-        logger.info(f"Running FFmpeg: input={temp_input.name}, output={temp_output.name}, options={output_options}")
+        logger.info(f"Running FFmpeg: input=pipe:0, output={temp_output.name}, options={output_options}")
 
-        # --- Run ffmpeg ---
-        ffmpeg_cmd = (
+        # --- Run ffmpeg using in-memory input for speed ---
+        (
             ffmpeg
-            .input(temp_input.name)
+            .input('pipe:0')
             .output(temp_output.name, **output_options)
-            .run_async(overwrite_output=True)
+            .overwrite_output()
+            .run(input=input_bytes, capture_stdout=False, capture_stderr=True, quiet=True)
         )
-        ffmpeg_cmd.wait()
 
         if not os.path.exists(temp_output.name):
             raise RuntimeError(f"Output file was not created: {temp_output.name}")
@@ -210,10 +202,9 @@ def convert_audio(
         raise RuntimeError(f"Audio conversion failed: {str(e)}")
     finally:
         # --- Clean up temp files ---
-        for temp_file in [temp_input, temp_output]:
-            if temp_file and hasattr(temp_file, 'name') and os.path.exists(temp_file.name):
-                try:
-                    os.unlink(temp_file.name)
-                    logger.debug(f"Successfully removed temp file: {temp_file.name}")
-                except Exception as ex:
-                    logger.warning(f"Failed to remove temp file {temp_file.name}: {str(ex)}")
+        if temp_output and hasattr(temp_output, 'name') and os.path.exists(temp_output.name):
+            try:
+                os.unlink(temp_output.name)
+                logger.debug(f"Successfully removed temp file: {temp_output.name}")
+            except Exception as ex:
+                logger.warning(f"Failed to remove temp file {temp_output.name}: {str(ex)}")

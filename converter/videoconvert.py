@@ -143,30 +143,24 @@ def build_filters(width, height):
 def convert_video(
     input_bytes: bytes,
     target_format: str,
-    remove_metadata: bool = False,
-    codec: str = None,
-    crf: int = None,
-    profile: str = None,
-    level: str = None,
-    speed: str = None,
-    bitrate: str = None,
-    width: int = None,
-    height: int = None,
-    fps: int = None
+    settings: dict = None
 ) -> bytes:
     """
     Convert video to target format with optional compression settings.
     Args:
         input_bytes: Input video as bytes
         target_format: Target format extension (mp4, webm, etc.)
-        remove_metadata: Whether to strip metadata from output
-        codec: Video codec to use for encoding (if None, uses format default)
-        crf: Constant Rate Factor for quality (lower = better quality)
-        preset: Compression speed/efficiency tradeoff
-        bitrate: Target bitrate (e.g., "1M" for 1 Mbps)
-        width: Output width (optional)
-        height: Output height (optional)
-        fps: Output frames per second (optional)
+        settings: Dictionary of optional settings:
+            remove_metadata: Whether to strip metadata from output
+            codec: Video codec to use for encoding (if None, uses format default)
+            crf: Constant Rate Factor for quality (lower = better quality)
+            profile: Codec profile
+            level: Codec level
+            speed: Compression speed/efficiency tradeoff
+            bitrate: Target bitrate (e.g., "1M" for 1 Mbps)
+            width: Output width (optional)
+            height: Output height (optional)
+            fps: Output frames per second (optional)
     Returns:
         Converted video as bytes
     """
@@ -174,52 +168,97 @@ def convert_video(
     if not is_ffmpeg_available():
         raise RuntimeError("FFmpeg is not installed or not available in your PATH. Please install FFmpeg and make sure it's in your system PATH.")
 
-    codec = codec or get_default_codec_for_format(target_format)
+    settings = settings or {}
+
+    codec = settings.get("codec") or get_default_codec_for_format(target_format)
     validate_format_codec_compatibility(target_format, codec)
-    profile, level = get_codec_profile_level(codec, profile, level)
-    temp_input = temp_output = None
+    profile, level = get_codec_profile_level(
+        codec,
+        settings.get("profile"),
+        settings.get("level")
+    )
+
+    output_options = build_output_options(
+        codec,
+        settings.get("remove_metadata", False),
+        settings.get("crf"),
+        settings.get("speed"),
+        settings.get("bitrate"),
+        settings.get("fps"),
+        profile,
+        level
+    )
+    filters = build_filters(settings.get("width"), settings.get("height"))
+
+    logger.debug(f"Using codec: '{codec}' for format: {target_format}")
+    logger.info(f"Converting video to {target_format} with codec {codec}")
+    logger.info(f"FFmpeg options: {output_options}")
+
+    # Log equivalent ffmpeg command
+    cmd_str = f"ffmpeg -i pipe:0 "
+    for key, value in output_options.items():
+        cmd_str += f"-{key} {value} "
+    if filters:
+        cmd_str += f'-vf "{",".join(filters)}" '
+    cmd_str += "-f " + target_format + " pipe:1"
+    logger.debug(f"Equivalent FFmpeg command: {cmd_str}")
+
+    logger.info(f"Running FFmpeg in-memory (pipe) for conversion to {target_format}")
 
     try:
-        temp_input = create_temp_file(".input", input_bytes)
-        if not os.path.exists(temp_input.name) or os.path.getsize(temp_input.name) == 0:
-            raise RuntimeError(f"Input file creation failed: {temp_input.name}")
-
-        temp_output = create_temp_file(f".{target_format}")
-        output_options = build_output_options(codec, remove_metadata, crf, speed, bitrate, fps, profile, level)
-        filters = build_filters(width, height)
-
-        logger.debug(f"Using codec: '{codec}' for format: {target_format}")
-        logger.info(f"Converting video to {target_format} with codec {codec}")
-        logger.info(f"FFmpeg options: {output_options}")
-
-        # Log equivalent ffmpeg command
-        cmd_str = f"ffmpeg -i {temp_input.name} "
-        for key, value in output_options.items():
-            cmd_str += f"-{key} {value} "
+        stream = ffmpeg.input('pipe:0')
         if filters:
-            cmd_str += f'-vf "{",".join(filters)}" '
-        cmd_str += temp_output.name
-        logger.debug(f"Equivalent FFmpeg command: {cmd_str}")
-
-        logger.info(f"Running FFmpeg: input={temp_input.name}, output={temp_output.name}, options={output_options}")
-
-        # Run ffmpeg
-        stream = ffmpeg.input(temp_input.name)
-        if filters:
-            stream = stream.filter('scale', width if width else -1, height if height else -1)
-        stream = stream.output(temp_output.name, **output_options).overwrite_output()
-        stream.run(quiet=True)
-
-        if not os.path.exists(temp_output.name):
-            raise RuntimeError(f"Output file was not created: {temp_output.name}")
-        if os.path.getsize(temp_output.name) == 0:
-            raise RuntimeError(f"Output file is empty: {temp_output.name}")
-
-        with open(temp_output.name, "rb") as f:
-            return f.read()
-
+            stream = stream.filter('scale', settings.get("width") if settings.get("width") else -1, settings.get("height") if settings.get("height") else -1)
+        stream = stream.output('pipe:1', format=target_format, **output_options).overwrite_output()
+        out, err = stream.run(input=input_bytes, capture_stdout=True, capture_stderr=True, quiet=True)
+        if not out or len(out) == 0:
+            logger.error(f"Output from ffmpeg is empty. Stderr: {err.decode(errors='ignore')}")
+            raise RuntimeError("Output from ffmpeg is empty.")
+        return out
     except Exception as e:
-        logger.error(f"Video conversion failed: {str(e)}")
-        raise RuntimeError(f"Video conversion failed: {str(e)}")
-    finally:
-        cleanup_temp_files(temp_input, temp_output)
+        logger.warning(f"In-memory conversion failed, falling back to temp files. Reason: {str(e)}")
+        # Fallback to temp files if in-memory fails
+        temp_input = temp_output = None
+        try:
+            temp_input = create_temp_file(".input", input_bytes)
+            if not os.path.exists(temp_input.name) or os.path.getsize(temp_input.name) == 0:
+                raise RuntimeError(f"Input file creation failed: {temp_input.name}")
+
+            temp_output = create_temp_file(f".{target_format}")
+            output_options = build_output_options(codec, settings.get("remove_metadata", False), settings.get("crf"), settings.get("speed"), settings.get("bitrate"), settings.get("fps"), profile, level)
+            filters = build_filters(settings.get("width"), settings.get("height"))
+
+            logger.debug(f"Using codec: '{codec}' for format: {target_format}")
+            logger.info(f"Converting video to {target_format} with codec {codec}")
+            logger.info(f"FFmpeg options: {output_options}")
+
+            # Log equivalent ffmpeg command
+            cmd_str = f"ffmpeg -i {temp_input.name} "
+            for key, value in output_options.items():
+                cmd_str += f"-{key} {value} "
+            if filters:
+                cmd_str += f'-vf "{",".join(filters)}" '
+            cmd_str += temp_output.name
+            logger.debug(f"Equivalent FFmpeg command: {cmd_str}")
+
+            logger.info(f"Running FFmpeg: input={temp_input.name}, output={temp_output.name}, options={output_options}")
+
+            # Run ffmpeg
+            stream = ffmpeg.input(temp_input.name)
+            if filters:
+                stream = stream.filter('scale', settings.get("width") if settings.get("width") else -1, settings.get("height") if settings.get("height") else -1)
+            stream = stream.output(temp_output.name, **output_options).overwrite_output()
+            stream.run(quiet=True)
+
+            if not os.path.exists(temp_output.name):
+                raise RuntimeError(f"Output file was not created: {temp_output.name}")
+            if os.path.getsize(temp_output.name) == 0:
+                raise RuntimeError(f"Output file is empty: {temp_output.name}")
+
+            with open(temp_output.name, "rb") as f:
+                return f.read()
+        except Exception as e2:
+            logger.error(f"Video conversion failed: {str(e2)}")
+            raise RuntimeError(f"Video conversion failed: {str(e2)}")
+        finally:
+            cleanup_temp_files(temp_input, temp_output)

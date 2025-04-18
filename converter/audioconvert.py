@@ -6,19 +6,23 @@ import logging
 import ffmpeg
 from loguru import logger
 
-# --- Logging Configuration ---
+# Ensure logs directory exists and use it for logging
+LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, "audioconv.log")
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("audioconv.log"),
+        logging.FileHandler(LOG_FILE),
         logging.StreamHandler()
     ]
 )
 
 logger.configure(
     handlers=[
-        {"sink": "audioconv.log", "rotation": "10 MB", "retention": "1 day"},
+        {"sink": LOG_FILE, "rotation": "10 MB", "retention": "1 day"},
         {"sink": lambda msg: print(msg, end=""), "level": "INFO"}
     ]
 )
@@ -91,16 +95,26 @@ def validate_format_codec_compatibility(target_format: str, codec: str) -> bool:
 
 # --- Main Conversion Function ---
 
+def build_output_options(settings: dict):
+    output_options = {}
+    if settings["remove_metadata"]:
+        output_options["map_metadata"] = -1
+        
+    output_options["c:a"] = settings["codec"]
+    
+    if settings["bitrate"] is not None and not settings["lossless"]:
+        output_options["b:a"] = settings["bitrate"]
+    if settings["sample_rate"] is not None:
+        output_options["ar"] = str(settings["sample_rate"])
+    if settings["compression_level"] is not None and str(settings["codec"]).lower() in {"flac", "libmp3lame", "libopus"}:
+        output_options["compression_level"] = settings["compression_level"]
+    output_options["ac"] = str(settings["channels"])
+    return output_options
+
 def convert_audio(
     input_bytes: bytes,
     target_format: str,
-    remove_metadata: bool = False,
-    codec: str = None,
-    bitrate: str = None,
-    sample_rate: int = None,
-    channels: int = 2,
-    lossless: bool = False,
-    compression_level: int = None
+    settings: dict
 ) -> bytes:
     """
     Convert audio to a target format with optional quality settings.
@@ -123,24 +137,24 @@ def convert_audio(
 
     # Automatically enable lossless for certain formats
     if target_format in {'flac', 'alac', 'wav', 'aiff'}:
-        lossless = True
+        settings["lossless"] = True
     else:
-        lossless = False
+        settings["lossless"] = False
 
     if not is_ffmpeg_available():
         raise RuntimeError("FFmpeg is not installed or not available in your PATH. Please install FFmpeg and make sure it's in your system PATH.")
 
     # Determine codec
-    if codec is None:
-        codec = get_default_codec_for_format(target_format, lossless)
-    if not isinstance(codec, str):
-        logger.warning(f"Invalid codec type: {type(codec)}. Converting to string.")
-        codec = str(codec)
+    if settings["codec"] is None:
+        settings["codec"] = get_default_codec_for_format(target_format, settings["lossless"])
+    if not isinstance(settings["codec"], str):
+        logger.warning(f"Invalid codec type: {type(settings['codec'])}. Converting to string.")
+        settings["codec"] = str(settings["codec"])
 
-    validate_format_codec_compatibility(target_format, codec)
+    validate_format_codec_compatibility(target_format, settings["codec"])
 
-    if lossless and bitrate is not None:
-        bitrate = None
+    if settings["lossless"] and settings["bitrate"] is not None:
+        settings["bitrate"] = None
 
     temp_input = None
     temp_output = None
@@ -160,21 +174,9 @@ def convert_audio(
         temp_output.close()
 
         # --- Build ffmpeg output options ---
-        output_options = {}
-        if remove_metadata:
-            output_options["map_metadata"] = -1
-        output_options["c:a"] = codec
-
-        if bitrate is not None and not lossless:
-            output_options["b:a"] = bitrate
-        if sample_rate is not None:
-            output_options["ar"] = str(sample_rate)
-        if compression_level is not None and str(codec).lower() in {"flac", "libmp3lame", "libopus"}:
-            output_options["compression_level"] = compression_level
-        output_options["ac"] = str(channels)
-
-        logger.debug(f"Using codec: '{codec}' for format: {target_format}")
-        logger.info(f"Converting audio to {target_format} with codec {codec}")
+        output_options = build_output_options(settings, target_format)
+        logger.debug(f"Using codec: '{settings['codec']}' for format: {target_format}")
+        logger.info(f"Converting audio to {target_format} with codec {settings['codec']}")
         logger.info(f"FFmpeg options: {output_options}")
 
         # --- Log equivalent ffmpeg command ---
@@ -183,7 +185,6 @@ def convert_audio(
             cmd_str += f"-{key} {value} "
         cmd_str += temp_output.name
         logger.debug(f"Equivalent FFmpeg command: {cmd_str}")
-
         logger.info(f"Running FFmpeg: input={temp_input.name}, output={temp_output.name}, options={output_options}")
 
         # --- Run ffmpeg ---

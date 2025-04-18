@@ -6,19 +6,23 @@ import logging
 import ffmpeg
 from loguru import logger
 
-# --- Logging Configuration ---
+# Ensure logs directory exists and use it for logging
+LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, "videoconv.log")
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("videoconv.log"),
+        logging.FileHandler(LOG_FILE),
         logging.StreamHandler()
     ]
 )
 
 logger.configure(
     handlers=[
-        {"sink": "videoconv.log", "rotation": "10 MB", "retention": "1 day"},
+        {"sink": LOG_FILE, "rotation": "10 MB", "retention": "1 day"},
         {"sink": lambda msg: print(msg, end=""), "level": "INFO"}
     ]
 )

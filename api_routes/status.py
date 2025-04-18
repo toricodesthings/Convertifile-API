@@ -29,8 +29,8 @@ def _build_processing_response(task_result):
         "status": task_result.state.lower(),
     }
     if hasattr(task_result, 'info') and task_result.info:
-        if isinstance(task_result.info, dict) and 'message' in task_result.info:
-            response["status"] = 'processing'
+        #if isinstance(task_result.info, dict) and 'message' in task_result.info:
+            #response["status"] = 'processing'
         response["meta"] = task_result.info
     return response
 

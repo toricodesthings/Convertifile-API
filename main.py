@@ -9,19 +9,23 @@ import logging
 import time
 from loguru import logger
 
+LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, "app.log")
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("app.log"),
+        logging.FileHandler(LOG_FILE),
         logging.StreamHandler()
     ]
 )
 
 logger.configure(
     handlers=[
-        {"sink": "app.log", "rotation": "10 MB", "retention": "1 day"},
+        {"sink": LOG_FILE, "rotation": "10 MB", "retention": "1 day"},
         {"sink": lambda msg: print(msg, end=""), "level": "INFO"}
     ]
 )

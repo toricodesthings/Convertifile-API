@@ -22,5 +22,6 @@ celery.conf.beat_schedule = {
     },
 }
 
+import workers.tasks  # Import tasks to ensure they are registered with Celery
 # Log the connection URL (helpful for debugging)
 print(f"Celery configured with broker: {celery.conf.broker_url}")

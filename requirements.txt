@@ -1,15 +1,16 @@
 celery==5.5.1
 celery[redis]==5.5.1
 fastapi==0.115.12
-ffmpeg_python==2.0.12
+ffmpeg-python==0.2.0
 loguru==0.7.3
 Pillow==10.4.0
 pillow-heif==0.22.0
 pypdf==5.4.0
-python-dotenv==1.11.0
+python-dotenv==1.1.0
 python_docx==1.1.2
 pymupdf==1.25.5
 uvicorn==0.34.0
 python-multipart==0.0.20
 redis==5.2.1
+python-magic==0.4.27
 

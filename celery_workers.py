@@ -5,5 +5,4 @@ from workers.celery_app import celery
 app = celery
 
 # Celery will automatically discover tasks in the specified modules
-import workers.tasks
 print(f"Celery worker configured with broker: {app.conf.broker_url}")

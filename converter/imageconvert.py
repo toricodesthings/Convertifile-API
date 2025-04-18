@@ -1,26 +1,125 @@
 # Image Converter Module
 from PIL import Image
 import io
+import os
 from loguru import logger
 import pymupdf  # PyMuPDF
 import logging
 
-# Configure logging
+# Ensure logs directory exists and use it for logging
+LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, "imgconv.log")
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("imgconv.log"),
+        logging.FileHandler(LOG_FILE),
         logging.StreamHandler()
     ]
 )
 
 logger.configure(
     handlers=[
-        {"sink": "app.log", "rotation": "10 MB", "retention": "1 day"},
+        {"sink": LOG_FILE, "rotation": "10 MB", "retention": "1 day"},
         {"sink": lambda msg: print(msg, end=""), "level": "INFO"}
     ]
 )
+
+def _handle_jpeg(img, settings, save_kwargs):
+    if img.mode == 'RGBA':
+        background = Image.new('RGB', img.size, (255, 255, 255))
+        background.paste(img, mask=img.split()[3])
+        img = background
+    if settings["optimize"]:
+        save_kwargs['optimize'] = True
+    save_kwargs['quality'] = settings.get("quality", 90)
+    return img
+
+def _handle_webp(img, settings, save_kwargs):
+    if settings["quality"] is not None:
+        save_kwargs['quality'] = settings["quality"]
+    if not settings["compression"]:
+        save_kwargs['lossless'] = True
+    if settings["optimize"]:
+        save_kwargs['method'] = 6
+    return img
+
+def _handle_png(img, settings, save_kwargs):
+    if settings["optimize"]:
+        save_kwargs['optimize'] = True
+    if not settings["compression"] and settings["quality"] is not None:
+        compression_level = max(0, min(9, 9 - (settings["quality"] // 11)))
+        save_kwargs['compress_level'] = compression_level
+    return img
+
+def _handle_tiff(img, settings, save_kwargs):
+    if settings["quality"] is not None:
+        save_kwargs['compression'] = 'jpeg' if settings["quality"] < 90 else 'lzw'
+    else:
+        save_kwargs['compression'] = 'lzw'
+    return img
+
+def _handle_gif(img, settings, save_kwargs):
+    if settings["optimize"]:
+        save_kwargs['optimize'] = True
+    return img
+
+def _handle_bmp(img, settings, save_kwargs):
+    if settings["bmp_compression"] and img.mode in ['RGB', 'RGBA']:
+        save_kwargs['compression'] = 1
+    return img
+
+def _handle_avif(img, settings, save_kwargs):
+    save_kwargs['quality'] = min(max(1, settings.get("quality", 75)), 100)
+    save_kwargs['speed'] = settings["avif_speed"]
+    return img
+
+def _handle_heif(img, settings, save_kwargs):
+    save_kwargs['quality'] = settings.get("quality", 80)
+    return img
+
+def _handle_ico(img, settings, save_kwargs):
+    if img.width > 256 or img.height > 256:
+        img.thumbnail((256, 256), Image.LANCZOS)
+    return img
+
+def _handle_tga(img, settings, save_kwargs):
+    if settings.get("tga_compression"):
+        save_kwargs['compression'] = "tga_rle"
+    return img
+
+def _handle_other(img, settings, save_kwargs):
+    # For PPM, PBM, PNM, PGM, SGI, etc.
+    return img
+
+def _apply_format_settings(img, pil_format, settings, save_kwargs):
+    match pil_format:
+        case 'JPEG' | 'JPG':
+            return _handle_jpeg(img, settings, save_kwargs)
+        case 'WEBP':
+            return _handle_webp(img, settings, save_kwargs)
+        case 'PNG':
+            return _handle_png(img, settings, save_kwargs)
+        case 'TIFF':
+            return _handle_tiff(img, settings, save_kwargs)
+        case 'GIF':
+            return _handle_gif(img, settings, save_kwargs)
+        case 'BMP':
+            return _handle_bmp(img, settings, save_kwargs)
+        case 'AVIF':
+            return _handle_avif(img, settings, save_kwargs)
+        case 'HEIF' | 'HEIC':
+            return _handle_heif(img, settings, save_kwargs)
+        case 'ICO':
+            return _handle_ico(img, settings, save_kwargs)
+        case 'TGA':
+            return _handle_tga(img, settings, save_kwargs)
+        case 'PPM' | 'PBM' | 'PNM' | 'PGM' | 'SGI':
+            return _handle_other(img, settings, save_kwargs)
+        case _:
+            return img
 
 def convert_image(
     input_bytes: bytes, 
@@ -69,91 +168,7 @@ def convert_image(
             pil_format = target_format.upper()
             
             # Format-specific settings
-            match pil_format:
-                case 'JPEG' | 'JPG':
-                    pil_format = 'JPEG'  # Ensure consistent format name
-                    # Handle RGBA to RGB conversion (JPEG doesn't support alpha channel)
-                    if img.mode == 'RGBA':
-                        background = Image.new('RGB', img.size, (255, 255, 255))
-                        # Paste the image using the alpha channel as mask
-                        background.paste(img, mask=img.split()[3])  # 3 is the alpha channel
-                        img = background
-                        
-                    # JPEG optimization settings
-                    if settings["optimize"]:
-                        save_kwargs['optimize'] = True
-                    # JPEG quality: 1-100 (higher is better quality but larger file)
-                    if "quality" in settings and settings["quality"] is not None:
-                        save_kwargs['quality'] = settings["quality"]
-                    else:
-                        save_kwargs['quality'] = 90 
-                
-                case 'WEBP':
-                    # WebP quality: 1-100 (higher is better quality but larger file)
-                    if settings["quality"] is not None:
-                        save_kwargs['quality'] = settings["quality"]
-                    
-                    # WebP lossless option
-                    if not settings["compression"]:
-                        save_kwargs['lossless'] = True
-                    
-                    if settings["optimize"]:
-                        save_kwargs['method'] = 6  
-                
-                case 'PNG':
-                    # PNG uses lossless compression
-                    if settings["optimize"]:
-                        save_kwargs['optimize'] = True
-                        
-                    if not settings["compression"] and settings["quality"] is not None:
-                        # Convert quality (1-100) to compression level (0-9)
-                        compression_level = max(0, min(9, 9 - (settings["quality"] // 11)))
-                        save_kwargs['compress_level'] = compression_level
-                
-                case 'TIFF':
-                    if settings["quality"] is not None:
-                        save_kwargs['compression'] = 'jpeg' if settings["quality"] < 90 else 'lzw'
-                    else:
-                        save_kwargs['compression'] = 'lzw'  # Default compression
-                
-                case 'GIF':
-                    if settings["optimize"]:
-                        save_kwargs['optimize'] = True
-                
-                case 'BMP':
-                    if settings["bmp_compression"] and img.mode in ['RGB', 'RGBA']:
-                        save_kwargs['compression'] = 1  # RLE compression
-                
-                case 'AVIF':
-                    # AVIF quality settings
-                    if settings["quality"] is not None:
-                        save_kwargs['quality'] = min(max(1, settings["quality"]), 100)
-                    else:
-                        save_kwargs['quality'] = 75  # Default quality
-                    
-                    # AVIF encoder speed: 0-10 (slower = better quality)
-                    save_kwargs['speed'] = settings["avif_speed"]
-                
-                case 'HEIF' | 'HEIC':
-                    pil_format = 'HEIF'  # Standardize the format name
-                    # HEIF quality settings
-                    if settings["quality"] is not None:
-                        save_kwargs['quality'] = settings["quality"]
-                    else:
-                        save_kwargs['quality'] = 80  # Default quality
-                
-                case 'ICO':
-                    # ICO format has specific size requirements
-                    # Resize to common icon sizes if larger than 256x256
-                    if img.width > 256 or img.height > 256:
-                        img.thumbnail((256, 256), Image.LANCZOS)
-                        
-                case 'TGA':
-                    if settings["tga_compression"]:
-                        save_kwargs['compression'] = "tga_rle"  # TGA Compression
-                    
-                case 'PPM' | 'PBM' | 'PNM' | 'PGM' | 'SGI':
-                    pass  # No special settings needed
+            img = _apply_format_settings(img, pil_format, settings, save_kwargs)
             
             logger.info(f"Saving image with format {pil_format}, options: {save_kwargs}")
             img.save(output_io, format=pil_format, **save_kwargs)

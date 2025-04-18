@@ -1,11 +1,20 @@
-FROM python:3.14-0a7-slim
+FROM python:3.13.3-slim
 
-# Install FFmpeg and other dependencies with pinned versions
+# Install FFmpeg, Rust, Cargo, and other dependencies with pinned versions
 RUN apt-get update && apt-get install -y \
     ffmpeg=7:5.1.6-0+deb12u1 \
     build-essential \
+    libxml2-dev \
+    libxslt1-dev \
+    libmagic1 \
+    libmagic-dev \
+    curl \
+    && curl https://sh.rustup.rs -sSf | sh -s -- -y \
+    && . "$HOME/.cargo/env" \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /app
 

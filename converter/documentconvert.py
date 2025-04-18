@@ -37,7 +37,6 @@ SUPPORT_PDF_IMAGE = ['jpeg', 'png', 'tiff', 'webp', 'bmp']
 
 def libreoffice_convert(input_bytes, input_ext, output_ext):
     import tempfile
-    from pathlib import Path
 
     # Only allow safe extensions
     allowed_exts = {"pdf", "docx", "txt", "odt", "rtf"}
@@ -59,10 +58,15 @@ def libreoffice_convert(input_bytes, input_ext, output_ext):
             "--outdir", str(out_dir),
             str(input_path)
         ]
-        # The result variable is not used, but we keep it to check for errors via check=True
+        # Security: All command arguments are validated
+        # - output_ext and input_ext are whitelisted.
+        # - out_dir and input_path are from secure temp files.
+        # - No user-controlled input is passed unsanitized.
+        # - shell=False is enforced.
         subprocess.run(
             cmd,
             check=True,
+            shell=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=60
@@ -105,6 +109,54 @@ def pdf_to_image_bytes(pdf_bytes, image_format, settings=None):
         img_bytes_list.append((filename, img_byte_arr.getvalue()))
     return img_bytes_list
 
+def _pdf_to_txt(input_stream):
+    pdf = PdfReader(input_stream)
+    text = ""
+    for page in pdf.pages:
+        text += page.extract_text()
+    return text.encode('utf-8')
+
+def _txt_to_pdf(input_stream):
+    doc = docx.Document()
+    text = input_stream.read().decode('utf-8')
+    for line in text.split('\n'):
+        doc.add_paragraph(line)
+    tmp_bytes = io.BytesIO()
+    doc.save(tmp_bytes)
+    pdf_bytes = libreoffice_convert(tmp_bytes.getvalue(), "docx", "pdf")
+    return pdf_bytes
+
+def _docx_to_txt(input_stream):
+    doc = docx.Document(input_stream)
+    text = ""
+    for para in doc.paragraphs:
+        text += para.text + '\n'
+    return text.encode('utf-8')
+
+def _txt_to_docx(input_stream):
+    doc = docx.Document()
+    text = input_stream.read().decode('utf-8')
+    for line in text.split('\n'):
+        doc.add_paragraph(line)
+    tmp_bytes = io.BytesIO()
+    doc.save(tmp_bytes)
+    return tmp_bytes.getvalue()
+
+def _pdf_to_docx(contents):
+    return libreoffice_convert(contents, "pdf", "docx")
+
+def _pdf_to_image_zip(contents, to_format, settings):
+    image_bytes_list = pdf_to_image_bytes(contents, to_format, settings)
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for filename, img_bytes in image_bytes_list:
+            zipf.writestr(filename, img_bytes)
+    zip_buffer.seek(0)
+    return zip_buffer.getvalue()
+
+def _docx_to_pdf(contents):
+    return libreoffice_convert(contents, "docx", "pdf")
+
 def convert_document(contents, from_format, to_format, settings=None):
     """
     Convert document from one format to another.
@@ -113,70 +165,27 @@ def convert_document(contents, from_format, to_format, settings=None):
     """
     from_format = from_format.lower()
     to_format = to_format.lower()
-    
     input_stream = io.BytesIO(contents)
     output_stream = io.BytesIO()
-    
+
     print(f"Converting from {from_format} to {to_format}")
-    
-    # PDF to TXT
+
     if from_format == 'pdf' and to_format == 'txt':
-        pdf = PdfReader(input_stream)
-        text = ""
-        for page in pdf.pages:
-            text += page.extract_text()
-        output_stream.write(text.encode('utf-8'))
-    
-    # TXT to PDF
+        output_stream.write(_pdf_to_txt(input_stream))
     elif from_format == 'txt' and to_format == 'pdf':
-        doc = docx.Document()
-        text = input_stream.read().decode('utf-8')
-        for line in text.split('\n'):
-            doc.add_paragraph(line)
-        tmp_bytes = io.BytesIO()
-        doc.save(tmp_bytes)
-        pdf_bytes = libreoffice_convert(tmp_bytes.getvalue(), "docx", "pdf")
-        output_stream.write(pdf_bytes)
-    
-    # DOCX to TXT
+        output_stream.write(_txt_to_pdf(input_stream))
     elif from_format == 'docx' and to_format == 'txt':
-        doc = docx.Document(input_stream)
-        text = ""
-        for para in doc.paragraphs:
-            text += para.text + '\n'
-        output_stream.write(text.encode('utf-8'))
-    
-    # TXT to DOCX
+        output_stream.write(_docx_to_txt(input_stream))
     elif from_format == 'txt' and to_format == 'docx':
-        doc = docx.Document()
-        text = input_stream.read().decode('utf-8')
-        for line in text.split('\n'):
-            doc.add_paragraph(line)
-        doc.save(output_stream)
-    
-    # PDF to DOCX (via libreoffice)
+        output_stream.write(_txt_to_docx(input_stream))
     elif from_format == 'pdf' and to_format == 'docx':
-        docx_bytes = libreoffice_convert(contents, "pdf", "docx")
-        output_stream.write(docx_bytes)
-    
+        output_stream.write(_pdf_to_docx(contents))
     elif from_format == 'pdf' and to_format in SUPPORT_PDF_IMAGE:
-        # Converts a given PDF to image format (JPEG/PNG/TIFF/WEBP/BMP)
-        image_bytes_list = pdf_to_image_bytes(contents, to_format, settings)
-        # Create a zip archive in memory with all images
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
-            for filename, img_bytes in image_bytes_list:
-                zipf.writestr(filename, img_bytes)
-        zip_buffer.seek(0)
-        return zip_buffer.getvalue()
-    
-    # DOCX to PDF (via libreoffice)
+        return _pdf_to_image_zip(contents, to_format, settings)
     elif from_format == 'docx' and to_format == 'pdf':
-        pdf_bytes = libreoffice_convert(contents, "docx", "pdf")
-        output_stream.write(pdf_bytes)
-    
+        output_stream.write(_docx_to_pdf(contents))
     else:
         raise ValueError(f"Conversion from {from_format} to {to_format} not supported yet.")
-    
+
     return output_stream.getvalue()
 

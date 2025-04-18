@@ -61,6 +61,75 @@ def sanitize_filename(filename: str) -> str:
     # Reconstruct filename with extension if present
     return f"{name}.{extension}" if extension else name
 
+def check_file_size(contents: bytes):
+    file_size = len(contents)
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Max size allowed is {MAX_FILE_SIZE/(1024*1024)}MB"
+        )
+
+def check_mime_type(contents: bytes):
+    mime = magic.Magic(mime=True)
+    if not any(mime.from_buffer(contents).startswith(prefix) for prefix in ALLOWED_MIME_PREFIXES):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type."
+        )
+
+def check_suspicious_signatures(contents: bytes):
+    suspicious_signatures = [
+        b'MZ',           # Windows executable
+        b'\x7FELF',      # ELF files (Unix/Linux executables)
+        b'#!',           # Shebang (script files)
+        b'<?php',        # PHP scripts
+        b'<script',      # JavaScript
+    ]
+    for sig in suspicious_signatures:
+        if sig in contents[:100]:  # Check first 100 bytes
+            raise HTTPException(
+                status_code=400,
+                detail="File rejected due to possible malicious content"
+            )
+
+def get_conversion_settings(convert_to: str, form_data: dict) -> dict:
+    audio_formats = ["mp3", "wav", "flac", "aac", "ogg", "m4a", "opus"]
+    video_formats = ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv"]
+    if convert_to.lower() in audio_formats:
+        return {
+            "remove_metadata": form_data["audio_remove_metadata"],
+            "codec": form_data["audio_codec"],
+            "bitrate": form_data["audio_bitrate"],
+            "sample_rate": form_data["audio_sample_rate"],
+            "channels": form_data["audio_channels"],
+            "lossless": form_data["audio_lossless"],
+            "compression_level": form_data["audio_compression_level"],
+        }
+    elif convert_to.lower() in video_formats:
+        return {
+            "remove_metadata": form_data["video_remove_metadata"],
+            "codec": form_data["video_codec"],
+            "crf": form_data["video_crf"],
+            "profile": form_data["video_profile"],
+            "level": form_data["video_level"],
+            "speed": form_data["video_speed"],
+            "bitrate": form_data["video_bitrate"],
+            "width": form_data["video_width"],
+            "height": form_data["video_height"],
+            "fps": form_data["video_fps"],
+        }
+    else:
+        return {
+            "remove_metadata": form_data["remove_metadata"],
+            "compression": form_data["compression"],
+            "quality": form_data["quality"],
+            "optimize": form_data["optimize"],
+            "bmp_compression": form_data["bmp_compression"],
+            "tga_compression": form_data["tga_compression"],
+            "pdf_page_size": form_data["pdf_page_size"],
+            "avif_speed": form_data["avif_speed"]
+        }
+
 router = APIRouter()
 
 @router.post("/")
@@ -99,7 +168,6 @@ async def convert_file(
     video_height: int = Form(None),
     video_fps: int = Form(None),
 ) -> dict:
-    
     """
     Convert a file to a different format using a background task.
 
@@ -108,88 +176,48 @@ async def convert_file(
     task_id : str
         Unique identifier for the conversion task.
     message : str
-    
     """
-    
-    # Check if the filename is suspicious
     if is_suspicious_filename(file.filename):
         raise HTTPException(
             status_code=400,
             detail="Unallowed filename."
         )
-        
     sanitized_filename = sanitize_filename(file.filename)
-    
     contents = await file.read()
-    file_size = len(contents)
-    if file_size > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large. Max size allowed is {MAX_FILE_SIZE/(1024*1024)}MB"
-        )
-    
-    # 4. Verify MIME type
-    mime = magic.Magic(mime=True)
-    # Allow only certain MIME type prefixes
-    if not any(mime.from_buffer(contents).startswith(prefix) for prefix in ALLOWED_MIME_PREFIXES):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type."
-        )
-        
-        # 5. Check for common binary signatures
-    suspicious_signatures = [
-        b'MZ',           # Windows executable
-        b'\x7FELF',      # ELF files (Unix/Linux executables)
-        b'#!',           # Shebang (script files)
-        b'<?php',        # PHP scripts
-        b'<script',      # JavaScript
-    ]
-    
-    for sig in suspicious_signatures:
-        if sig in contents[:100]:  # Check first 100 bytes
-            raise HTTPException(
-                status_code=400,
-                detail="File rejected due to possible malicious content"
-            )
-    
-    # Determine conversion settings based on type
-    if convert_to.lower() in ["mp3", "wav", "flac", "aac", "ogg", "m4a", "opus"]:  # audio formats
-        conversion_settings = {
-            "remove_metadata": audio_remove_metadata,
-            "codec": audio_codec,
-            "bitrate": audio_bitrate,
-            "sample_rate": audio_sample_rate,
-            "channels": audio_channels,
-            "lossless": audio_lossless,
-            "compression_level": audio_compression_level,
-        }
-    elif convert_to.lower() in ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv"]:  # video formats
-        conversion_settings = {
-            "remove_metadata": video_remove_metadata,
-            "codec": video_codec,
-            "crf": video_crf,
-            "profile": video_profile,
-            "level": video_level,
-            "speed": video_speed,
-            "bitrate": video_bitrate,
-            "width": video_width,
-            "height": video_height,
-            "fps": video_fps,
-        }
-    else:
-        conversion_settings = {
-            "remove_metadata": remove_metadata,
-            "compression": compression,
-            "quality": quality,
-            "optimize": optimize,
-            "bmp_compression": bmp_compression,
-            "tga_compression": tga_compression,
-            "pdf_page_size": pdf_page_size,
-            "avif_speed": avif_speed
-        }
-    
-    # Capture the AsyncResult and get its ID, run the task
+
+    check_file_size(contents)
+    check_mime_type(contents)
+    check_suspicious_signatures(contents)
+
+    form_data = {
+        "remove_metadata": remove_metadata,
+        "compression": compression,
+        "quality": quality,
+        "optimize": optimize,
+        "bmp_compression": bmp_compression,
+        "tga_compression": tga_compression,
+        "pdf_page_size": pdf_page_size,
+        "avif_speed": avif_speed,
+        "audio_remove_metadata": audio_remove_metadata,
+        "audio_codec": audio_codec,
+        "audio_bitrate": audio_bitrate,
+        "audio_sample_rate": audio_sample_rate,
+        "audio_channels": audio_channels,
+        "audio_lossless": audio_lossless,
+        "audio_compression_level": audio_compression_level,
+        "video_remove_metadata": video_remove_metadata,
+        "video_codec": video_codec,
+        "video_crf": video_crf,
+        "video_profile": video_profile,
+        "video_level": video_level,
+        "video_speed": video_speed,
+        "video_bitrate": video_bitrate,
+        "video_width": video_width,
+        "video_height": video_height,
+        "video_fps": video_fps,
+    }
+    conversion_settings = get_conversion_settings(convert_to, form_data)
+
     result = convert_file_task.delay(sanitized_filename, contents, convert_to, conversion_settings)
     celery_task_id = result.id
     return {

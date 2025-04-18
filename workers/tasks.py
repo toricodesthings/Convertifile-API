@@ -11,7 +11,15 @@ TEMP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 SUPPORTED_EXTENSIONS = {
-    "images": ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'ico', 'aiff', 'heic', 'avif', 'pdf', 'ppm', 'pbm', 'tga', 'sgi'),
+    "images": (
+        'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'ico', 'aiff', 'heic', 'avif', 'pdf', 'ppm', 'pbm', 'tga', 'sgi'
+    ),
+    "audio": (
+        "mp3", "ogg", "opus", "aac", "m4a", "flac", "alac", "wav", "aiff", "wma", "amr", "ac3"
+    ),
+    "video": (
+        "mp4", "webm", "mkv", "mov", "avi", "wmv", "flv", "ts", "mts"
+    ),
 }
 
 # Task for converting files using Celery

@@ -1,9 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 import magic
 from workers.tasks import convert_file_task
-import re, unicodedata, os
+import re, unicodedata
 
-MAX_FILE_SIZE = 250 * 1024 * 1024  # 250MB
+MAX_FILE_SIZE = 200 * 1024 * 1024  # 200MB
 
 ALLOWED_MIME_PREFIXES = ['image/', 'audio/', 'video/', 'application/pdf', 'text/']
 SUSPICIOUS_PATTERNS = [
@@ -67,6 +67,8 @@ router = APIRouter()
 async def convert_file(
     file: UploadFile = File(...),
     convert_to: str = Form(...),
+
+    # Image conversion options
     remove_metadata: bool = Form(False),
     compression: bool = Form(False),
     quality: int = Form(None),
@@ -75,6 +77,27 @@ async def convert_file(
     tga_compression: bool = Form(True),
     pdf_page_size: str = Form("A4"),
     avif_speed: int = Form(6),
+
+    # Audio conversion options
+    audio_remove_metadata: bool = Form(False),
+    audio_codec: str = Form(None),
+    audio_bitrate: str = Form(None),
+    audio_sample_rate: int = Form(None),
+    audio_channels: int = Form(2),
+    audio_lossless: bool = Form(False),
+    audio_compression_level: int = Form(None),
+
+    # Video conversion options
+    video_remove_metadata: bool = Form(False),
+    video_codec: str = Form(None),
+    video_crf: int = Form(None),
+    video_profile: str = Form(None),
+    video_level: str = Form(None),
+    video_speed: str = Form(None),
+    video_bitrate: str = Form(None),
+    video_width: int = Form(None),
+    video_height: int = Form(None),
+    video_fps: int = Form(None),
 ) -> dict:
     
     """
@@ -130,16 +153,41 @@ async def convert_file(
                 detail="File rejected due to possible malicious content"
             )
     
-    conversion_settings = {
-        "remove_metadata": remove_metadata,
-        "compression": compression,
-        "quality": quality,
-        "optimize": optimize,
-        "bmp_compression": bmp_compression,
-        "tga_compression": tga_compression,
-        "pdf_page_size": pdf_page_size,
-        "avif_speed": avif_speed
-    }
+    # Determine conversion settings based on type
+    if convert_to.lower() in ["mp3", "wav", "flac", "aac", "ogg", "m4a", "opus"]:  # audio formats
+        conversion_settings = {
+            "remove_metadata": audio_remove_metadata,
+            "codec": audio_codec,
+            "bitrate": audio_bitrate,
+            "sample_rate": audio_sample_rate,
+            "channels": audio_channels,
+            "lossless": audio_lossless,
+            "compression_level": audio_compression_level,
+        }
+    elif convert_to.lower() in ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv"]:  # video formats
+        conversion_settings = {
+            "remove_metadata": video_remove_metadata,
+            "codec": video_codec,
+            "crf": video_crf,
+            "profile": video_profile,
+            "level": video_level,
+            "speed": video_speed,
+            "bitrate": video_bitrate,
+            "width": video_width,
+            "height": video_height,
+            "fps": video_fps,
+        }
+    else:
+        conversion_settings = {
+            "remove_metadata": remove_metadata,
+            "compression": compression,
+            "quality": quality,
+            "optimize": optimize,
+            "bmp_compression": bmp_compression,
+            "tga_compression": tga_compression,
+            "pdf_page_size": pdf_page_size,
+            "avif_speed": avif_speed
+        }
     
     # Capture the AsyncResult and get its ID, run the task
     result = convert_file_task.delay(sanitized_filename, contents, convert_to, conversion_settings)

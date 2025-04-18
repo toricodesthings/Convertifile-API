@@ -1,8 +1,7 @@
 # Document Converter Module
 import io
-from PyPDF2 import PdfReader, PdfWriter
+from pypdf import PdfReader
 import docx
-from docx.shared import Inches
 
 SUPPORT_PDF_IMAGE = ['jpeg', 'png']
 

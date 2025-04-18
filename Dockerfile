@@ -1,8 +1,8 @@
 FROM python:3.14-0a7-slim
 
-# Install FFmpeg and other dependencies
+# Install FFmpeg and other dependencies with pinned versions
 RUN apt-get update && apt-get install -y \
-    ffmpeg \
+    ffmpeg=7:5.1.6-0+deb12u1 \
     build-essential \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -12,12 +12,10 @@ WORKDIR /app
 # Copy requirements first for caching
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
-    pip install -U "celery[redis]" && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application
 COPY . .
-
 
 # Create necessary directories
 RUN mkdir -p temp_files static

@@ -110,12 +110,22 @@ def get_codec_profile_level(codec, profile, level):
         return profile or default_profile, level or default_level
     return profile, level
 
-def build_output_options(codec, remove_metadata, crf, speed, bitrate, fps, profile, level):
-    """Build ffmpeg output options dict."""
+def build_output_options(settings):
+    """Build ffmpeg output options dict from settings dict."""
     options = {}
+    codec = settings.get("codec")
+    remove_metadata = settings.get("remove_metadata", False)
+    crf = settings.get("crf")
+    speed = settings.get("speed")
+    bitrate = settings.get("bitrate")
+    fps = settings.get("fps")
+    profile = settings.get("profile")
+    level = settings.get("level")
+
     if remove_metadata:
         options["map_metadata"] = -1
-    options["c:v"] = codec
+    if codec:
+        options["c:v"] = codec
     if crf is not None:
         options["crf"] = str(crf)
     if speed is not None:
@@ -130,13 +140,6 @@ def build_output_options(codec, remove_metadata, crf, speed, bitrate, fps, profi
         if level is not None:
             options["level"] = level
     return options
-
-def build_filters(width, height):
-    """Build ffmpeg filter list for scaling."""
-    if width is not None or height is not None:
-        scale_expr = f"scale={width if width else -1}:{height if height else -1}"
-        return [scale_expr]
-    return []
 
 # --- Main Conversion Function ---
 
@@ -177,18 +180,12 @@ def convert_video(
         settings.get("profile"),
         settings.get("level")
     )
+    # Ensure codec, profile, and level are set in settings for build_output_options
+    settings["codec"] = codec
+    settings["profile"] = profile
+    settings["level"] = level
 
-    output_options = build_output_options(
-        codec,
-        settings.get("remove_metadata", False),
-        settings.get("crf"),
-        settings.get("speed"),
-        settings.get("bitrate"),
-        settings.get("fps"),
-        profile,
-        level
-    )
-    filters = build_filters(settings.get("width"), settings.get("height"))
+    output_options = build_output_options(settings)
 
     logger.debug(f"Using codec: '{codec}' for format: {target_format}")
     logger.info(f"Converting video to {target_format} with codec {codec}")
@@ -198,8 +195,6 @@ def convert_video(
     cmd_str = f"ffmpeg -i pipe:0 "
     for key, value in output_options.items():
         cmd_str += f"-{key} {value} "
-    if filters:
-        cmd_str += f'-vf "{",".join(filters)}" '
     cmd_str += "-f " + target_format + " pipe:1"
     logger.debug(f"Equivalent FFmpeg command: {cmd_str}")
 
@@ -207,8 +202,6 @@ def convert_video(
 
     try:
         stream = ffmpeg.input('pipe:0')
-        if filters:
-            stream = stream.filter('scale', settings.get("width") if settings.get("width") else -1, settings.get("height") if settings.get("height") else -1)
         stream = stream.output('pipe:1', format=target_format, **output_options).overwrite_output()
         out, err = stream.run(input=input_bytes, capture_stdout=True, capture_stderr=True, quiet=True)
         if not out or len(out) == 0:
@@ -225,8 +218,8 @@ def convert_video(
                 raise RuntimeError(f"Input file creation failed: {temp_input.name}")
 
             temp_output = create_temp_file(f".{target_format}")
-            output_options = build_output_options(codec, settings.get("remove_metadata", False), settings.get("crf"), settings.get("speed"), settings.get("bitrate"), settings.get("fps"), profile, level)
-            filters = build_filters(settings.get("width"), settings.get("height"))
+            # Use updated settings for build_output_options
+            output_options = build_output_options(settings)
 
             logger.debug(f"Using codec: '{codec}' for format: {target_format}")
             logger.info(f"Converting video to {target_format} with codec {codec}")
@@ -236,8 +229,6 @@ def convert_video(
             cmd_str = f"ffmpeg -i {temp_input.name} "
             for key, value in output_options.items():
                 cmd_str += f"-{key} {value} "
-            if filters:
-                cmd_str += f'-vf "{",".join(filters)}" '
             cmd_str += temp_output.name
             logger.debug(f"Equivalent FFmpeg command: {cmd_str}")
 
@@ -245,8 +236,6 @@ def convert_video(
 
             # Run ffmpeg
             stream = ffmpeg.input(temp_input.name)
-            if filters:
-                stream = stream.filter('scale', settings.get("width") if settings.get("width") else -1, settings.get("height") if settings.get("height") else -1)
             stream = stream.output(temp_output.name, **output_options).overwrite_output()
             stream.run(quiet=True)
 

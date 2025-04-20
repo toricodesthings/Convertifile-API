@@ -153,7 +153,6 @@ async def convert_file(
     audio_bitrate: str = Form(None),
     audio_sample_rate: int = Form(None),
     audio_channels: int = Form(2),
-    audio_lossless: bool = Form(False),
     audio_compression_level: int = Form(None),
 
     # Video conversion options
@@ -164,9 +163,11 @@ async def convert_file(
     video_level: str = Form(None),
     video_speed: str = Form(None),
     video_bitrate: str = Form(None),
-    video_width: int = Form(None),
-    video_height: int = Form(None),
     video_fps: int = Form(None),
+    
+    # Document conversion options
+    dpi : int = Form(200),
+    doc_quality : int = Form(None),
 ) -> dict:
     """
     Convert a file to a different format using a background task.
@@ -203,7 +204,6 @@ async def convert_file(
         "audio_bitrate": audio_bitrate,
         "audio_sample_rate": audio_sample_rate,
         "audio_channels": audio_channels,
-        "audio_lossless": audio_lossless,
         "audio_compression_level": audio_compression_level,
         "video_remove_metadata": video_remove_metadata,
         "video_codec": video_codec,
@@ -212,8 +212,6 @@ async def convert_file(
         "video_level": video_level,
         "video_speed": video_speed,
         "video_bitrate": video_bitrate,
-        "video_width": video_width,
-        "video_height": video_height,
         "video_fps": video_fps,
     }
     conversion_settings = get_conversion_settings(convert_to, form_data)

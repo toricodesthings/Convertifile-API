@@ -92,9 +92,9 @@ def pdf_to_image_bytes(pdf_bytes, image_format, settings=None):
     """
     Convert PDF bytes to image bytes in the specified format.
     Returns a list of (filename, image bytes) tuples (one per page).
-    settings: dict, may include 'dpi' (int), 'quality' (int, for JPEG), etc.
+    settings: dict, may include 'dpi' (int), 'quality' (int, for JPEG/WEBP), etc.
         - 'dpi': int (default 200) - DPI for image rendering.
-        - 'quality': int (for JPEG only) - JPEG quality (1-100).
+        - 'quality': int (for JPEG/WEBP only) - quality (1-100).
     """
     dpi = settings.get('dpi', 200) if settings else 200
     images = convert_from_bytes(pdf_bytes, dpi=dpi)
@@ -102,7 +102,7 @@ def pdf_to_image_bytes(pdf_bytes, image_format, settings=None):
     for idx, img in enumerate(images):
         img_byte_arr = io.BytesIO()
         save_kwargs = {}
-        if image_format.lower() == 'jpeg' and settings and 'quality' in settings:
+        if image_format.lower() in ('jpeg', 'webp') and settings and 'quality' in settings:
             save_kwargs['quality'] = settings['quality']
         img.save(img_byte_arr, format=image_format.upper(), **save_kwargs)
         filename = f"page_{idx+1}.{image_format.lower()}"

@@ -101,9 +101,7 @@ def build_output_options(settings: dict, lossless: bool) -> dict:
     output_options = {}
     if settings["remove_metadata"]:
         output_options["map_metadata"] = -1
-    else:
-        output_options["map_metadata"]
-        
+
     output_options["c:a"] = settings["codec"]
     
     if settings["bitrate"] is not None and not lossless:

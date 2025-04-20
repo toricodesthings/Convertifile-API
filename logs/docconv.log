@@ -16,3 +16,34 @@
 2025-04-20 05:38:42.034 | INFO     | converter.imageconvert:convert_image:149 - Starting image conversion: webp with settings {'remove_metadata': False, 'compression': True, 'quality': 95, 'optimize': True, 'bmp_compression': True, 'tga_compression': True, 'pdf_page_size': 'A4', 'avif_speed': 6}
 2025-04-20 05:38:42.034 | INFO     | converter.imageconvert:convert_image:157 - Image opened successfully: PNG (1536, 1024) RGB
 2025-04-20 05:38:42.035 | INFO     | converter.imageconvert:convert_image:166 - Saving image with format WEBP, options: {'quality': 95, 'method': 6}
+2025-04-20 05:56:19.269 | INFO     | converter.imageconvert:convert_image:149 - Starting image conversion: webp with settings {'remove_metadata': False, 'compression': True, 'quality': 92, 'optimize': True, 'bmp_compression': True, 'tga_compression': True, 'pdf_page_size': 'A4', 'avif_speed': 6}
+2025-04-20 05:56:19.283 | INFO     | converter.imageconvert:convert_image:157 - Image opened successfully: PNG (1386, 918) RGBA
+2025-04-20 05:56:19.284 | INFO     | converter.imageconvert:convert_image:166 - Saving image with format WEBP, options: {'quality': 92, 'method': 6}
+2025-04-20 05:56:21.599 | INFO     | converter.imageconvert:convert_image:149 - Starting image conversion: webp with settings {'remove_metadata': False, 'compression': True, 'quality': 92, 'optimize': True, 'bmp_compression': True, 'tga_compression': True, 'pdf_page_size': 'A4', 'avif_speed': 6}
+2025-04-20 05:56:21.600 | INFO     | converter.imageconvert:convert_image:157 - Image opened successfully: PNG (1536, 961) RGBA
+2025-04-20 05:56:21.600 | INFO     | converter.imageconvert:convert_image:166 - Saving image with format WEBP, options: {'quality': 92, 'method': 6}
+2025-04-20 05:56:24.135 | INFO     | converter.imageconvert:convert_image:149 - Starting image conversion: webp with settings {'remove_metadata': False, 'compression': True, 'quality': 92, 'optimize': True, 'bmp_compression': True, 'tga_compression': True, 'pdf_page_size': 'A4', 'avif_speed': 6}
+2025-04-20 05:56:24.135 | INFO     | converter.imageconvert:convert_image:157 - Image opened successfully: PNG (1024, 1536) RGB
+2025-04-20 05:56:24.135 | INFO     | converter.imageconvert:convert_image:166 - Saving image with format WEBP, options: {'quality': 92, 'method': 6}
+2025-04-20 05:56:26.140 | INFO     | converter.imageconvert:convert_image:149 - Starting image conversion: webp with settings {'remove_metadata': False, 'compression': True, 'quality': 92, 'optimize': True, 'bmp_compression': True, 'tga_compression': True, 'pdf_page_size': 'A4', 'avif_speed': 6}
+2025-04-20 05:56:26.141 | INFO     | converter.imageconvert:convert_image:157 - Image opened successfully: PNG (1024, 1536) RGB
+2025-04-20 05:56:26.141 | INFO     | converter.imageconvert:convert_image:166 - Saving image with format WEBP, options: {'quality': 92, 'method': 6}
+2025-04-20 06:00:46.549 | INFO     | converter.imageconvert:convert_image:149 - Starting image conversion: txt with settings {'remove_metadata': False, 'compression': False, 'quality': None, 'optimize': True, 'bmp_compression': True, 'tga_compression': True, 'pdf_page_size': 'A4', 'avif_speed': 6}
+2025-04-20 06:00:46.550 | ERROR    | converter.imageconvert:convert_image:172 - Image conversion error: cannot identify image file <_io.BytesIO object at 0x7ff610a75f30>
+2025-04-20 06:00:46.550 | ERROR    | converter.imageconvert:convert_image:179 - Error details: {'error': 'cannot identify image file <_io.BytesIO object at 0x7ff610a75f30>', 'error_type': 'UnidentifiedImageError', 'format': 'txt', 'input_size': 483961}
+2025-04-20 06:04:01.992 | DEBUG    | converter.videoconvert:convert_video:190 - Using codec: 'libvpx-vp9' for format: webm
+2025-04-20 06:04:01.993 | INFO     | converter.videoconvert:convert_video:191 - Converting video to webm with codec libvpx-vp9
+2025-04-20 06:04:01.993 | INFO     | converter.videoconvert:convert_video:192 - FFmpeg options: {'c:v': 'libvpx-vp9'}
+2025-04-20 06:04:01.993 | DEBUG    | converter.videoconvert:convert_video:199 - Equivalent FFmpeg command: ffmpeg -i pipe:0 -c:v libvpx-vp9 -f webm pipe:1
+2025-04-20 06:04:01.994 | INFO     | converter.videoconvert:convert_video:201 - Running FFmpeg in-memory (pipe) for conversion to webm
+2025-04-20 06:04:02.132 | WARNING  | converter.videoconvert:convert_video:212 - In-memory conversion failed, falling back to temp files. Reason: ffmpeg error (see stderr output for detail)
+2025-04-20 06:04:02.158 | DEBUG    | converter.videoconvert:convert_video:224 - Using codec: 'libvpx-vp9' for format: webm
+2025-04-20 06:04:02.158 | INFO     | converter.videoconvert:convert_video:225 - Converting video to webm with codec libvpx-vp9
+2025-04-20 06:04:02.158 | INFO     | converter.videoconvert:convert_video:226 - FFmpeg options: {'c:v': 'libvpx-vp9'}
+2025-04-20 06:04:02.159 | DEBUG    | converter.videoconvert:convert_video:233 - Equivalent FFmpeg command: ffmpeg -i /tmp/tmpo5zp34yf.input -c:v libvpx-vp9 /tmp/tmpo5dybkmx.webm
+2025-04-20 06:04:02.159 | INFO     | converter.videoconvert:convert_video:235 - Running FFmpeg: input=/tmp/tmpo5zp34yf.input, output=/tmp/tmpo5dybkmx.webm, options={'c:v': 'libvpx-vp9'}
+2025-04-20 06:08:34.231 | WARNING  | converter.audioconvert:convert_audio:186 - In-memory conversion failed, falling back to temp files. Reason: 'map_metadata'
+2025-04-20 06:08:34.232 | ERROR    | converter.audioconvert:convert_audio:223 - Audio conversion failed: 'map_metadata'
+2025-04-20 06:08:34.233 | DEBUG    | converter.audioconvert:convert_audio:229 - Successfully removed temp file: /tmp/tmpk5pawz_i.mp3
+2025-04-20 06:17:09.220 | DEBUG    | converter.videoconvert:cleanup_temp_files:97 - Successfully removed temp file: /tmp/tmpo5zp34yf.input
+2025-04-20 06:17:09.225 | DEBUG    | converter.videoconvert:cleanup_temp_files:97 - Successfully removed temp file: /tmp/tmpo5dybkmx.webm

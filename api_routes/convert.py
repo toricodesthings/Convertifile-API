@@ -102,7 +102,6 @@ def get_conversion_settings(convert_to: str, form_data: dict) -> dict:
             "bitrate": form_data["audio_bitrate"],
             "sample_rate": form_data["audio_sample_rate"],
             "channels": form_data["audio_channels"],
-            "lossless": form_data["audio_lossless"],
             "compression_level": form_data["audio_compression_level"],
         }
     elif convert_to.lower() in video_formats:
@@ -114,8 +113,6 @@ def get_conversion_settings(convert_to: str, form_data: dict) -> dict:
             "level": form_data["video_level"],
             "speed": form_data["video_speed"],
             "bitrate": form_data["video_bitrate"],
-            "width": form_data["video_width"],
-            "height": form_data["video_height"],
             "fps": form_data["video_fps"],
         }
     else:

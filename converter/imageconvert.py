@@ -71,7 +71,7 @@ def _handle_bmp(img, settings, save_kwargs):
     return img
 
 def _handle_avif(img, settings, save_kwargs):
-    save_kwargs['quality'] = min(max(1, settings.get("quality", 75)), 100)
+    save_kwargs['quality'] = settings.get("quality", 80)
     save_kwargs['speed'] = settings.get("avif_speed", 5)
     return img
 

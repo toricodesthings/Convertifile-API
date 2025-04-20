@@ -1,0 +1,18 @@
+2025-04-20 05:36:01.317 | INFO     | converter.imageconvert:convert_image:149 - Starting image conversion: webp with settings {'remove_metadata': False, 'compression': True, 'quality': 95, 'optimize': True, 'bmp_compression': True, 'tga_compression': True, 'pdf_page_size': 'A4', 'avif_speed': 6}
+2025-04-20 05:36:01.339 | INFO     | converter.imageconvert:convert_image:157 - Image opened successfully: PNG (1536, 1024) RGB
+2025-04-20 05:36:01.340 | INFO     | converter.imageconvert:convert_image:166 - Saving image with format WEBP, options: {'quality': 95, 'method': 6}
+2025-04-20 05:36:03.353 | INFO     | converter.imageconvert:convert_image:149 - Starting image conversion: webp with settings {'remove_metadata': False, 'compression': True, 'quality': 95, 'optimize': True, 'bmp_compression': True, 'tga_compression': True, 'pdf_page_size': 'A4', 'avif_speed': 6}
+2025-04-20 05:36:03.354 | INFO     | converter.imageconvert:convert_image:157 - Image opened successfully: PNG (1536, 1024) RGB
+2025-04-20 05:36:03.354 | INFO     | converter.imageconvert:convert_image:166 - Saving image with format WEBP, options: {'quality': 95, 'method': 6}
+2025-04-20 05:37:35.811 | INFO     | converter.imageconvert:convert_image:149 - Starting image conversion: webp with settings {'remove_metadata': False, 'compression': True, 'quality': 95, 'optimize': True, 'bmp_compression': True, 'tga_compression': True, 'pdf_page_size': 'A4', 'avif_speed': 6}
+2025-04-20 05:37:35.812 | INFO     | converter.imageconvert:convert_image:157 - Image opened successfully: PNG (1536, 1024) RGB
+2025-04-20 05:37:35.813 | INFO     | converter.imageconvert:convert_image:166 - Saving image with format WEBP, options: {'quality': 95, 'method': 6}
+2025-04-20 05:37:38.293 | INFO     | converter.imageconvert:convert_image:149 - Starting image conversion: webp with settings {'remove_metadata': False, 'compression': True, 'quality': 95, 'optimize': True, 'bmp_compression': True, 'tga_compression': True, 'pdf_page_size': 'A4', 'avif_speed': 6}
+2025-04-20 05:37:38.293 | INFO     | converter.imageconvert:convert_image:157 - Image opened successfully: PNG (1536, 1024) RGB
+2025-04-20 05:37:38.294 | INFO     | converter.imageconvert:convert_image:166 - Saving image with format WEBP, options: {'quality': 95, 'method': 6}
+2025-04-20 05:38:39.522 | INFO     | converter.imageconvert:convert_image:149 - Starting image conversion: webp with settings {'remove_metadata': False, 'compression': True, 'quality': 95, 'optimize': True, 'bmp_compression': True, 'tga_compression': True, 'pdf_page_size': 'A4', 'avif_speed': 6}
+2025-04-20 05:38:39.523 | INFO     | converter.imageconvert:convert_image:157 - Image opened successfully: PNG (1536, 1024) RGB
+2025-04-20 05:38:39.523 | INFO     | converter.imageconvert:convert_image:166 - Saving image with format WEBP, options: {'quality': 95, 'method': 6}
+2025-04-20 05:38:42.034 | INFO     | converter.imageconvert:convert_image:149 - Starting image conversion: webp with settings {'remove_metadata': False, 'compression': True, 'quality': 95, 'optimize': True, 'bmp_compression': True, 'tga_compression': True, 'pdf_page_size': 'A4', 'avif_speed': 6}
+2025-04-20 05:38:42.034 | INFO     | converter.imageconvert:convert_image:157 - Image opened successfully: PNG (1536, 1024) RGB
+2025-04-20 05:38:42.035 | INFO     | converter.imageconvert:convert_image:166 - Saving image with format WEBP, options: {'quality': 95, 'method': 6}

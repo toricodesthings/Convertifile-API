@@ -2,7 +2,7 @@
 
 ConvertiFile is a powerful file conversion API built with FastAPI and Celery that allows you to convert files between various formats:
 
-- **Images**: Convert between JPG, PNG, WebP, GIF, BMP, and more
+- **Images**: Convert between JPG, PNG, WebP, BMP, and more
 - **Audio**: Convert between MP3, WAV, OGG, FLAC, and more
 - **Video**: Convert between MP4, WebM, MKV, and more
 - **Documents**: Convert between PDF, TXT, DOCX, and more
@@ -12,14 +12,15 @@ ConvertiFile is a powerful file conversion API built with FastAPI and Celery tha
 - **Asynchronous Processing**: Large file conversions run in the background
 - **Progress Tracking**: Track the status of your conversions
 - **Metadata Removal**: Optionally strip metadata from files
-- **Simple API**: Easy-to-use REST API
+- **API**: Easy-to-use REST API
 - **Web Interface**: Built-in test interface
 
 ## Prerequisites
 
-- Python 3.8+
+- Python 3.12+
 - Redis server (for Celery task queue)
 - FFmpeg (for audio/video conversion)
+- Libreoffice CLI
 
 ## Installation
 
@@ -59,16 +60,6 @@ sudo apt install ffmpeg
 #### On macOS:
 ```bash
 brew install ffmpeg
-```
-
-### 5. Configure environment variables
-
-Create a `.env` file in the project root:
-
-```
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_BACKEND_URL=redis://localhost:6379/0
-ENVIRONMENT=development  # Change to production for production deployment
 ```
 
 ## Running the Application
@@ -163,18 +154,12 @@ After starting the server, you can access the interactive API documentation at:
 
 ## Docker Support
 
-The API can be ran as a Docker Container!
+ The API has been Dockerized, it is recommended that the api be ran within a docker container on a standalone drive/volume
 
-### Build the Docker image:
-
-```bash
-docker build -t convertifile-api .
-```
-
-### Run the container:
+### Build & Run the Docker image:
 
 ```bash
-docker run -p 8000:8000 -e "CELERY_BROKER_URL=redis://redis:6379/0" -e "CELERY_BACKEND_URL=redis://redis:6379/0" --name convertifile convertifile-api
+docker-compose up --build
 ```
 
 ## License

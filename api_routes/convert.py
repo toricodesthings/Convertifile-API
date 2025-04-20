@@ -3,9 +3,13 @@ import magic
 from workers.tasks import convert_file_task
 import re, unicodedata
 
-MAX_FILE_SIZE = 200 * 1024 * 1024  # 200MB
+MAX_FILE_SIZE_IMAGE = 200 * 1024 * 1024    # 200MB
+MAX_FILE_SIZE_VIDEO = 1024 * 1024 * 1024   # 1GB
+MAX_FILE_SIZE_AUDIO = 500 * 1024 * 1024    # 500MB
+MAX_FILE_SIZE_DOC   = 100 * 1024 * 1024    # 100MB
 
 ALLOWED_MIME_PREFIXES = ['image/', 'audio/', 'video/', 'application/pdf', 'text/']
+
 SUSPICIOUS_PATTERNS = [
     r'\.exe$', r'\.sh$', r'\.bat$', r'\.cmd$', r'\.php$', r'\.js$',
     r'\.dll$', r'\.vbs$', r'\.py$', r'\.(exe|sh|bat|cmd|php|js|dll)\.', 
@@ -61,12 +65,39 @@ def sanitize_filename(filename: str) -> str:
     # Reconstruct filename with extension if present
     return f"{name}.{extension}" if extension else name
 
-def check_file_size(contents: bytes):
+def get_file_category(mime_type: str, convert_to: str) -> str:
+    """Determine file category based on mime type or convert_to."""
+    audio_formats = ["mp3", "wav", "flac", "aac", "ogg", "m4a", "opus"]
+    video_formats = ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv"]
+    doc_formats = ["pdf", "docx", "text", "txt"]
+    if mime_type.startswith("image/"):
+        return "image"
+    elif mime_type.startswith("video/") or convert_to.lower() in video_formats:
+        return "video"
+    elif mime_type.startswith("audio/") or convert_to.lower() in audio_formats:
+        return "audio"
+    elif mime_type.startswith("application/pdf") or mime_type.startswith("text/") or convert_to.lower() in doc_formats:
+        return "doc"
+    else:
+        return "image"  # Default fallback
+
+def check_file_size(contents: bytes, mime_type: str, convert_to: str):
+    category = get_file_category(mime_type, convert_to)
+    if category == "image":
+        max_size = MAX_FILE_SIZE_IMAGE
+    elif category == "video":
+        max_size = MAX_FILE_SIZE_VIDEO
+    elif category == "audio":
+        max_size = MAX_FILE_SIZE_AUDIO
+    elif category == "doc":
+        max_size = MAX_FILE_SIZE_DOC
+    else:
+        max_size = MAX_FILE_SIZE_IMAGE
     file_size = len(contents)
-    if file_size > MAX_FILE_SIZE:
+    if file_size > max_size:
         raise HTTPException(
             status_code=413,
-            detail=f"File too large. Max size allowed is {MAX_FILE_SIZE/(1024*1024)}MB"
+            detail=f"File too large. Max size allowed for {category} is {max_size // (1024*1024)}MB"
         )
 
 def check_mime_type(contents: bytes):
@@ -76,6 +107,8 @@ def check_mime_type(contents: bytes):
             status_code=400,
             detail=f"Unsupported file type."
         )
+    
+    return mime.from_buffer(contents)
 
 def check_suspicious_signatures(contents: bytes):
     suspicious_signatures = [
@@ -95,6 +128,7 @@ def check_suspicious_signatures(contents: bytes):
 def get_conversion_settings(convert_to: str, form_data: dict) -> dict:
     audio_formats = ["mp3", "wav", "flac", "aac", "ogg", "m4a", "opus"]
     video_formats = ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv"]
+    doc_formats = ["pdf", "docx", "text", "txt"]
     if convert_to.lower() in audio_formats:
         return {
             "remove_metadata": form_data["audio_remove_metadata"],
@@ -114,6 +148,11 @@ def get_conversion_settings(convert_to: str, form_data: dict) -> dict:
             "speed": form_data["video_speed"],
             "bitrate": form_data["video_bitrate"],
             "fps": form_data["video_fps"],
+        }
+    elif convert_to.lower() in doc_formats:
+        return {
+            "dpi": form_data["dpi"],
+            "quality": form_data["doc_quality"]
         }
     else:
         return {
@@ -182,10 +221,10 @@ async def convert_file(
         )
     sanitized_filename = sanitize_filename(file.filename)
     contents = await file.read()
-
-    check_file_size(contents)
-    check_mime_type(contents)
+    
     check_suspicious_signatures(contents)
+    mime_type = check_mime_type(contents)
+    check_file_size(contents, mime_type, convert_to)
 
     form_data = {
         "remove_metadata": remove_metadata,
@@ -210,6 +249,8 @@ async def convert_file(
         "video_speed": video_speed,
         "video_bitrate": video_bitrate,
         "video_fps": video_fps,
+        "dpi": dpi,
+        "doc_quality": doc_quality,
     }
     conversion_settings = get_conversion_settings(convert_to, form_data)
 

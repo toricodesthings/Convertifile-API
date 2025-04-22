@@ -4,7 +4,6 @@ import io
 from pathlib import Path
 from loguru import logger
 import pymupdf  # PyMuPDF
-import logging
 
 # Ensure logs directory exists and use it for logging using Pathlib
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -12,12 +11,11 @@ LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 LOG_FILE = LOG_DIR / "imgconv.log"
 
-logger.configure(
-    handlers=[
-        {"sink": str(LOG_FILE), "rotation": "10 MB", "retention": "1 day"},
-        {"sink": lambda msg: print(msg, end=""), "level": "INFO"}
-    ]
-)
+# Add a handler to the existing logger for this module only
+logger.add(LOG_FILE, rotation="10 MB", retention="1 day", filter=lambda record: record["extra"].get("module") == "imageconvert")
+
+# Create a module-specific logger instead of using the global one
+img_logger = logger.bind(module="imageconvert")
 
 def _handle_jpeg(img, settings, save_kwargs):
     if img.mode == 'RGBA':
@@ -137,7 +135,7 @@ def convert_image(
     bytes
         The converted image data as bytes
     """
-    logger.info(f"Starting image conversion: {target_format} with settings {settings}")
+    img_logger.info(f"Starting image conversion: {target_format} with settings {settings}")
 
     # Special handling for PDF conversion
     if target_format.upper() == 'PDF':
@@ -145,29 +143,34 @@ def convert_image(
 
     try:
         with Image.open(io.BytesIO(input_bytes)) as img:
-            logger.info(f"Image opened successfully: {img.format} {img.size} {img.mode}")
+            img_logger.info(f"Image opened successfully: {img.format} {img.size} {img.mode}")
             output_io = io.BytesIO()
             save_kwargs = {}
             if settings.get("remove_metadata"):
                 img.info = {}
 
-            pil_format = target_format.upper()
+            pil_format = (
+                "JPEG" 
+                if target_format.lower() in ("jpg", "jpeg") 
+                else target_format.upper()
+            )
+            
             img = _apply_format_settings(img, pil_format, settings, save_kwargs)
 
-            logger.info(f"Saving image with format {pil_format}, options: {save_kwargs}")
+            img_logger.info(f"Saving image with format {pil_format}, options: {save_kwargs}")
             img.save(output_io, format=pil_format, **save_kwargs)
             output_io.seek(0)
             return output_io.read()
 
     except Exception as e:
-        logger.error(f"Image conversion error: {str(e)}", exc_info=True)
+        img_logger.error(f"Image conversion error: {str(e)}", exc_info=True)
         error_details = {
             "error": str(e),
             "error_type": type(e).__name__,
             "format": target_format,
             "input_size": len(input_bytes)
         }
-        logger.error(f"Error details: {error_details}")
+        img_logger.error(f"Error details: {error_details}")
         raise ValueError(f"Image conversion failed: {str(e)}")
 
 def convert_image_to_pdf(input_bytes: bytes, page_size: str = 'A4') -> bytes:
@@ -175,7 +178,7 @@ def convert_image_to_pdf(input_bytes: bytes, page_size: str = 'A4') -> bytes:
     Convert an image to PDF using PyMuPDF (faster and more secure than ReportLab)
     The image will be scaled to fit the page (A4, Letter, A3, A5, Legal, Tabloid) with no added margins.
     """
-    logger.info(f"Converting image to PDF with page size {page_size}")
+    img_logger.info(f"Converting image to PDF with page size {page_size}")
 
     # Define more page sizes (dimensions in points: 1pt = 1/72 inch)
     PAGE_SIZES = {
@@ -230,9 +233,9 @@ def convert_image_to_pdf(input_bytes: bytes, page_size: str = 'A4') -> bytes:
         pdf_doc.close()
         output_io.seek(0)
 
-        logger.info("PDF conversion completed successfully")
+        img_logger.info("PDF conversion completed successfully")
         return output_io.read()
 
     except Exception as e:
-        logger.error(f"Image to PDF conversion error: {str(e)}", exc_info=True)
+        img_logger.error(f"Image to PDF conversion error: {str(e)}", exc_info=True)
         raise ValueError(f"Image to PDF conversion failed: {str(e)}")

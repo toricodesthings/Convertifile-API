@@ -8,7 +8,6 @@ from pdf2image import convert_from_bytes
 import zipfile
 from pathlib import Path
 from loguru import logger
-import logging
 
 # Ensure logs directory exists and use it for logging (using pathlib)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -16,23 +15,11 @@ LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR / "docconv.log"
 
-# (Optional: Remove or comment out this block if you only want loguru logs)
-# logging.basicConfig(
-#     level=logging.INFO,
-#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-#     handlers=[
-#         logging.FileHandler(LOG_FILE),
-#         logging.StreamHandler()
-#     ]
-# )
+# Add a handler to the existing logger for this module only
+logger.add(LOG_FILE, rotation="10 MB", retention="1 day", filter=lambda record: record["extra"].get("module") == "documentconvert")
 
-logger.configure(
-    handlers=[
-        {"sink": LOG_FILE, "rotation": "10 MB", "retention": "1 day"},
-        {"sink": lambda msg: print(msg, end=""), "level": "INFO"}
-    ]
-)
-
+# Create a module-specific logger instead of using the global one
+doc_logger = logger.bind(module="documentconvert")
 
 SUPPORT_PDF_IMAGE = ['jpeg', 'png', 'tiff', 'webp', 'bmp']
 

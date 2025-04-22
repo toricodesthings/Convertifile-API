@@ -27,20 +27,19 @@ SUPPORTED_EXTENSIONS = {
 @celery.task(bind=True)
 def convert_file_task(self, filename, contents, convert_to, conversion_settings):
     task_id = self.request.id
-    self.update_state(state='processing', meta={'progress': 15, 'message': 'Preparing'})
+    self.update_state(state='processing', meta={'progress': 25, 'message': 'Preparing'})
     ext = filename.split('.')[-1].lower() # Get the file extension
     converted_filename = f"{filename.rsplit('.', 1)[0]}.{convert_to}"
     
     # Update task state to indicate processing has started
     self.update_state(state='processing', meta={
-        'progress': 20, 
+        'progress': 35, 
         'filename': filename,
-        'message': f'Starting'  # Add this line
+        'message': f'Starting'
     })
-    time.sleep(1)
     try:
         # Dispatch to appropriate converter based on extension using match-case
-        self.update_state(state='processing', meta={'progress': 50, 'message': f'Converting to {convert_to}'})
+        self.update_state(state='processing', meta={'progress': 60, 'message': f'Converting to {convert_to}'})
         match ext:
             case _ if ext in SUPPORTED_EXTENSIONS["images"]:
                 result = imageconvert.convert_image(contents, convert_to, conversion_settings)

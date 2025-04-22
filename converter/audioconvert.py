@@ -1,7 +1,6 @@
 import os
 import tempfile
 import subprocess
-import logging
 from pathlib import Path
 
 import ffmpeg
@@ -13,21 +12,12 @@ LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR / "audioconv.log"
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_FILE),
-        logging.StreamHandler()
-    ]
-)
+# Create a module-specific logger without reconfiguring the global logger
+# Just add a handler to the existing logger
+logger.add(LOG_FILE, rotation="10 MB", retention="1 day", filter=lambda record: record["extra"].get("module") == "audioconvert")
 
-logger.configure(
-    handlers=[
-        {"sink": LOG_FILE, "rotation": "10 MB", "retention": "1 day"},
-        {"sink": lambda msg: print(msg, end=""), "level": "INFO"}
-    ]
-)
+# Create a module-specific logger instead of using the global one
+audio_logger = logger.bind(module="audioconvert")
 
 # --- Utility Functions ---
 
@@ -88,29 +78,31 @@ def validate_format_codec_compatibility(target_format: str, codec: str) -> bool:
         "ac3": ["ac3"]
     }
     if target_format not in format_codec_map:
-        logger.warning(f"Format '{target_format}' is not in the compatibility database")
+        audio_logger.warning(f"Format '{target_format}' is not in the compatibility database")
         return True
     compatible = codec in format_codec_map[target_format]
     if not compatible:
-        logger.warning(f"Codec '{codec}' may not be compatible with format '{target_format}'")
+        audio_logger.warning(f"Codec '{codec}' may not be compatible with format '{target_format}'")
     return compatible
 
 # --- Main Conversion Function ---
 
-def build_output_options(settings: dict, lossless: bool) -> dict:
+def build_output_options(settings: dict, lossless: bool = False) -> dict:
     output_options = {}
-    if settings["remove_metadata"]:
-        output_options["map_metadata"] = -1
-
+    output_options["ac"] = str(settings["channels"])
     output_options["c:a"] = settings["codec"]
     
+    if settings["remove_metadata"]:
+        output_options["map_metadata"] = -1
+    
+    # Only add bitrate for non-lossless formats
     if settings["bitrate"] is not None and not lossless:
         output_options["b:a"] = settings["bitrate"]
     if settings["sample_rate"] is not None:
         output_options["ar"] = str(settings["sample_rate"])
     if settings["compression_level"] is not None and str(settings["codec"]).lower() in {"flac", "libmp3lame", "libopus"}:
         output_options["compression_level"] = settings["compression_level"]
-    output_options["ac"] = str(settings["channels"])
+
     return output_options
 
 def convert_audio(
@@ -135,7 +127,6 @@ def convert_audio(
         Converted audio as bytes.
     """
     target_format = target_format.lower()
-    lossless = bool
 
     # Automatically enable lossless for certain formats
     if target_format in {'flac', 'alac', 'wav', 'aiff'}:
@@ -150,7 +141,7 @@ def convert_audio(
     if settings["codec"] is None:
         settings["codec"] = get_default_codec_for_format(target_format, lossless)
     if not isinstance(settings["codec"], str):
-        logger.warning(f"Invalid codec type: {type(settings['codec'])}. Converting to string.")
+        audio_logger.warning(f"Invalid codec type: {type(settings['codec'])}. Converting to string.")
         settings["codec"] = str(settings["codec"])
 
     validate_format_codec_compatibility(target_format, settings["codec"])
@@ -161,27 +152,27 @@ def convert_audio(
     # --- Try in-memory conversion first ---
     try:
         output_options = build_output_options(settings, lossless)
-        logger.debug(f"Using codec: '{settings['codec']}' for format: {target_format}")
-        logger.info(f"Converting audio to {target_format} with codec {settings['codec']}")
-        logger.info(f"FFmpeg options: {output_options}")
+        audio_logger.debug(f"Using codec: '{settings['codec']}' for format: {target_format}")
+        audio_logger.info(f"Converting audio to {target_format} with {settings}")
+        audio_logger.info(f"FFmpeg options: {output_options}")
 
         # Log equivalent ffmpeg command
         cmd_str = f"ffmpeg -i pipe:0 "
         for key, value in output_options.items():
             cmd_str += f"-{key} {value} "
         cmd_str += f"-f {target_format} pipe:1"
-        logger.debug(f"Equivalent FFmpeg command: {cmd_str}")
-        logger.info(f"Running FFmpeg in-memory (pipe) for conversion to {target_format}")
+        audio_logger.debug(f"Equivalent FFmpeg command: {cmd_str}")
+        audio_logger.info(f"Running FFmpeg in-memory (pipe) for conversion to {target_format}")
 
         stream = ffmpeg.input('pipe:0')
         stream = stream.output('pipe:1', format=target_format, **output_options).overwrite_output()
         out, err = stream.run(input=input_bytes, capture_stdout=True, capture_stderr=True, quiet=True)
         if not out or len(out) == 0:
-            logger.error(f"Output from ffmpeg is empty. Stderr: {err.decode(errors='ignore')}")
+            audio_logger.error(f"Output from ffmpeg is empty. Stderr: {err.decode(errors='ignore')}")
             raise RuntimeError("Output from ffmpeg is empty.")
         return out
     except Exception as e:
-        logger.warning(f"In-memory conversion failed, falling back to temp files. Reason: {str(e)}")
+        audio_logger.warning(f"In-memory conversion failed, falling back to temp files. Reason: {str(e)}")
         # --- Fallback to temp files ---
         temp_output = None
         try:
@@ -189,17 +180,17 @@ def convert_audio(
             temp_output.close()
 
             output_options = build_output_options(settings, lossless)
-            logger.debug(f"Using codec: '{settings['codec']}' for format: {target_format}")
-            logger.info(f"Converting audio to {target_format} with codec {settings['codec']}")
-            logger.info(f"FFmpeg options: {output_options}")
+            audio_logger.debug(f"Using codec: '{settings['codec']}' for format: {target_format}")
+            audio_logger.info(f"Converting audio to {target_format} with codec {settings['codec']}")
+            audio_logger.info(f"FFmpeg options: {output_options}")
 
             # Log equivalent ffmpeg command
             cmd_str = f"ffmpeg -i pipe:0 "
             for key, value in output_options.items():
                 cmd_str += f"-{key} {value} "
             cmd_str += temp_output.name
-            logger.debug(f"Equivalent FFmpeg command: {cmd_str}")
-            logger.info(f"Running FFmpeg: input=pipe:0, output={temp_output.name}, options={output_options}")
+            audio_logger.debug(f"Equivalent FFmpeg command: {cmd_str}")
+            audio_logger.info(f"Running FFmpeg: input=pipe:0, output={temp_output.name}, options={output_options}")
 
             (
                 ffmpeg
@@ -218,12 +209,12 @@ def convert_audio(
                 return f.read()
 
         except Exception as e2:
-            logger.error(f"Audio conversion failed: {str(e2)}")
+            audio_logger.error(f"Audio conversion failed: {str(e2)}")
             raise RuntimeError(f"Audio conversion failed: {str(e2)}")
         finally:
             if temp_output and hasattr(temp_output, 'name') and os.path.exists(temp_output.name):
                 try:
                     os.unlink(temp_output.name)
-                    logger.debug(f"Successfully removed temp file: {temp_output.name}")
+                    audio_logger.debug(f"Successfully removed temp file: {temp_output.name}")
                 except Exception as ex:
-                    logger.warning(f"Failed to remove temp file {temp_output.name}: {str(ex)}")
+                    audio_logger.warning(f"Failed to remove temp file {temp_output.name}: {str(ex)}")

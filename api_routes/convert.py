@@ -131,12 +131,12 @@ def get_conversion_settings(convert_to: str, form_data: dict) -> dict:
     doc_formats = ["pdf", "docx", "text", "txt"]
     if convert_to.lower() in audio_formats:
         return {
-            "remove_metadata": form_data["audio_remove_metadata"],
-            "codec": form_data["audio_codec"],
-            "bitrate": form_data["audio_bitrate"],
-            "sample_rate": form_data["audio_sample_rate"],
-            "channels": form_data["audio_channels"],
-            "compression_level": form_data["audio_compression_level"],
+            "remove_metadata": form_data.get("audio_remove_metadata"),
+            "codec": form_data.get("audio_codec"),
+            "channels": form_data.get("audio_channels"),
+            "sample_rate": form_data.get("audio_sample_rate"),
+            "bitrate": form_data.get("audio_bitrate"),
+            "compression_level": form_data.get("audio_compression_level"),
         }
     elif convert_to.lower() in video_formats:
         return {

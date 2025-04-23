@@ -13,5 +13,6 @@ pymupdf==1.25.5
 uvicorn==0.34.0
 python-multipart==0.0.20
 redis==5.2.1
+psutil==7.0.0
 python-magic==0.4.27
 

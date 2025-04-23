@@ -104,7 +104,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/convertifileapp/", subapi)
+app.mount("/convertifile/", subapi)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 logger.info("ConvertIFile API initialized successfully")

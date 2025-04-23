@@ -2,7 +2,7 @@ services:
   app:
     build: .
     ports:
-      - "8000:8000"
+      - "9003:9003"
     volumes:
       - ./:/app
     environment:

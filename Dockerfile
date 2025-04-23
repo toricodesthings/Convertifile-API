@@ -32,7 +32,7 @@ RUN mkdir -p temp_files static
 ENV PYTHONUNBUFFERED=1
 
 # Expose port
-EXPOSE 8000
+EXPOSE 9003
 
 # Add a delay to ensure Redis is fully started, then start Celery worker and FastAPI
-CMD ["sh", "-c", "sleep 1 && celery -A celery_workers worker --loglevel=info --detach -B && uvicorn main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "sleep 1 && celery -A celery_workers worker --loglevel=info --detach -B && uvicorn main:app --host 0.0.0.0 --port 9003"]

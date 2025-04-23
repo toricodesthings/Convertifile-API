@@ -5,3 +5,7 @@ temp_files
 audioconv.log
 videoconv.log
 imgconv.log
+docconv.log
+celerybeat-schedule-shm
+celerybeat-schedule
+celerybeat-schdule-walg

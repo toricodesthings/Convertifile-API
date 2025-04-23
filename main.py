@@ -47,11 +47,19 @@ subapi = FastAPI(
 
 subapi.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://localhost:3000",
+        "http://utility.toridoesthings.xyz",
+        "https://utility.toridoesthings.xyz",
+        "http://convertifile.toridoesthings.xyz",
+        "https://convertifile.toridoesthings.xyz"
+    ], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @subapi.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -98,7 +106,14 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://localhost:3000",
+        "http://utility.toridoesthings.xyz",
+        "https://utility.toridoesthings.xyz",
+        "http://convertifile.toridoesthings.xyz",
+        "https://convertifile.toridoesthings.xyz"
+    ], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

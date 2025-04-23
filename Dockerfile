@@ -40,4 +40,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 9003
 
 # Add a delay to ensure Redis is fully started, then start Celery worker and FastAPI
-CMD ["sh", "-c", "sleep 1 && celery -A celery_workers worker --loglevel=info --detach -B && uvicorn main:app --host 0.0.0.0 --port 9003 --workers 3"]
+CMD ["sh", "-c", "sleep 1 && celery -A celery_workers worker --loglevel=info --detach -B && uvicorn main:app --proxy-headers --host 0.0.0.0 --port 9003 --workers 3"]

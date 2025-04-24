@@ -3,6 +3,9 @@ FROM python:3.13.3-alpine3.21
 # Install FFmpeg, Rust, Cargo, and other dependencies with Alpine package manager
 RUN apk update && apk add --no-cache \
     ffmpeg \
+    ffmpeg-libs \
+    opus \
+    opus-dev \
     build-base \
     gcc \
     musl-dev \
@@ -17,6 +20,8 @@ RUN apk update && apk add --no-cache \
     poppler-utils \
     && curl https://sh.rustup.rs -sSf | sh -s -- -y \
     && . "$HOME/.cargo/env"
+
+RUN ffmpeg -encoders | grep opus
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 

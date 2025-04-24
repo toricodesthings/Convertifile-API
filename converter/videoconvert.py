@@ -5,19 +5,10 @@ import psutil
 from pathlib import Path
 
 import ffmpeg
-from loguru import logger
+from logging_utils import get_module_logger
 
-# Ensure logs directory exists and use it for logging (using pathlib)
-BASE_DIR = Path(__file__).resolve().parent.parent
-LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(exist_ok=True)
-LOG_FILE = LOG_DIR / "videoconv.log"
-
-# Add a handler to the existing logger for this module only
-logger.add(LOG_FILE, rotation="10 MB", retention="1 day", filter=lambda record: record["extra"].get("module") == "videoconvert")
-
-# Create a module-specific logger instead of using the global one
-video_logger = logger.bind(module="videoconvert")
+# Create a module-specific logger
+video_logger = get_module_logger("videoconvert")
 
 # --- Utility Functions ---
 

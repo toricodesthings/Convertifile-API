@@ -3,6 +3,7 @@ celery[redis]==5.5.1
 uvicorn[standard]==0.34.0
 pdf2image==1.17.0
 fastapi==0.115.12
+slowapi==0.1.9
 ffmpeg-python==0.2.0
 loguru==0.7.3
 Pillow==10.4.0

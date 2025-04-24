@@ -1,7 +1,8 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
 import magic
 from workers.tasks import convert_file_task
 import re, unicodedata
+from limiter import limiter
 
 MAX_FILE_SIZE_IMAGE = 200 * 1024 * 1024    # 200MB
 MAX_FILE_SIZE_VIDEO = 1024 * 1024 * 1024   # 1GB
@@ -170,7 +171,9 @@ router = APIRouter()
 
 @router.post("/")
 @router.post("")
+@limiter.limit("25/hour")
 async def convert_file(
+    request: Request,  # Required for rate limiter
     file: UploadFile = File(...),
     convert_to: str = Form(...),
 
@@ -208,6 +211,7 @@ async def convert_file(
 ) -> dict:
     """
     Convert a file to a different format using a background task.
+    Rate limited to 25 requests per hour per client IP address (works through proxy).
 
     Returns:
     --------

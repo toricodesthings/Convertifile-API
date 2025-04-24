@@ -40,7 +40,8 @@ RUN mkdir -p temp_files static
 
 # Set environment variables for Python logging
 ENV PYTHONUNBUFFERED=1
-
+ENV DOCKER_CONTAINER=true 
+ENV ENVIRONMENT=production
 # Expose port
 EXPOSE 9003
 

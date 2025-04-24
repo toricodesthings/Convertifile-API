@@ -7,19 +7,11 @@ import docx
 from pdf2image import convert_from_bytes
 import zipfile
 from pathlib import Path
-from loguru import logger
 
-# Ensure logs directory exists and use it for logging (using pathlib)
-BASE_DIR = Path(__file__).resolve().parent.parent
-LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-LOG_FILE = LOG_DIR / "docconv.log"
+from logging_utils import get_module_logger
 
-# Add a handler to the existing logger for this module only
-logger.add(LOG_FILE, rotation="10 MB", retention="1 day", filter=lambda record: record["extra"].get("module") == "documentconvert")
-
-# Create a module-specific logger instead of using the global one
-doc_logger = logger.bind(module="documentconvert")
+# Create a module-specific logger
+doc_logger = get_module_logger("documentconvert")
 
 SUPPORT_PDF_IMAGE = ['jpeg', 'png', 'tiff', 'webp', 'bmp']
 

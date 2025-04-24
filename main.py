@@ -2,25 +2,27 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 import logging
 import os
 import time
-from pathlib import Path
-from loguru import logger
+import uuid
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
+from limiter import limiter  
+from logging_utils import main_logger, get_request_logger, BASE_DIR, LOG_DIR
 from api_routes import convert, status, health, result
 
 # Use Pathlib for paths
-BASE_DIR = Path(__file__).parent
-LOG_DIR = BASE_DIR / "logs"
 LOG_FILE = LOG_DIR / "app.log"
 TEMP_DIR = BASE_DIR / "temp_files"
 STATIC_DIR = BASE_DIR / "static"
 
-LOG_DIR.mkdir(exist_ok=True)
 TEMP_DIR.mkdir(exist_ok=True)
 
-# Configure logging
+# Configure standard Python logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -30,20 +32,17 @@ logging.basicConfig(
     ]
 )
 
-logger.configure(
-    handlers=[
-        {"sink": str(LOG_FILE), "rotation": "10 MB", "retention": "1 day"},
-        {"sink": lambda msg: print(msg, end=""), "level": "INFO"}
-    ]
-)
-
-logger.info(f"Created temporary directory at {TEMP_DIR}")
+main_logger.info(f"Created temporary directory at {TEMP_DIR}")
 
 subapi = FastAPI(
     title="ConvertIFile API",
     description="API for converting files between various formats",
     version="1.0.0",
 )
+
+# Add these two lines to register the rate limit handler
+subapi.state.limiter = limiter
+subapi.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 subapi.add_middleware(
     CORSMiddleware,
@@ -61,22 +60,34 @@ subapi.add_middleware(
     expose_headers=["*"], 
 )
 
+subapi.add_middleware(GZipMiddleware, minimum_size=1000)  # Compress responses > 1KB
 
 @subapi.middleware("http")
 async def log_requests(request: Request, call_next):
+    request_id = str(uuid.uuid4())[:6]  # Shorter ID for logs
+    request.state.request_id = request_id
+    
+    log = get_request_logger(request_id)
+    
     start_time = time.time()
-    logger.info(f"Request started: {request.method} {request.url.path}")
+    
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        client_ip = forwarded_for.split(",")[0].strip()
+    else:
+        client_ip = request.client.host
+        
+    log.info(f"{request.method} {request.url.path} - Started - IP: {client_ip}")
     response = await call_next(request)
     process_time = time.time() - start_time
-    logger.info(f"Request completed: {request.method} {request.url.path} - Status: {response.status_code} - Time: {process_time:.4f}s")
+    log.info(f"{request.method} {request.url.path} - Completed - Status: {response.status_code} - Time: {process_time:.4f}s")
     return response
 
 @subapi.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     import traceback
     error_details = traceback.format_exc()
-    logger.opt(exception=True).error(f"Unhandled exception: {exc}")
-    # Use .casefold() for robust comparison
+    main_logger.opt(exception=True).error(f"Unhandled exception: {exc}")
     if os.getenv("ENVIRONMENT", "development").casefold() == "development":
         return JSONResponse(
             status_code=500,
@@ -105,12 +116,64 @@ app = FastAPI(
     version="1.0.0",
 )
 
-app.mount("/convertifile/", subapi)
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+# Also add rate limit handler to the main app
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-logger.info("ConvertIFile API initialized successfully")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "https://localhost:3000",
+        "http://utility.toridoesthings.xyz",
+        "https://utility.toridoesthings.xyz",
+        "http://convertifile.toridoesthings.xyz",
+        "https://convertifile.toridoesthings.xyz"
+    ], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"], 
+)
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Middleware to block access to static files in production/Docker
+class StaticFilesAccessMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Check if the request is for static files
+        if request.url.path.startswith("/static/"):
+            # Only allow access in development mode (now checks for Docker)
+            if not health.is_development():
+                return JSONResponse(
+                    status_code=404,
+                    content={"detail": "Not Found"}
+                )
+        
+        return await call_next(request)
+
+# Add the middleware
+app.add_middleware(StaticFilesAccessMiddleware)
+
+# Mount static files conditionally
+if health.is_development():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+app.mount("/convertifile/", subapi)
+
+main_logger.info("ConvertiFile API initialized successfully")
 
 @app.get("/", tags=["Root"])
 def read_root() -> FileResponse:
-    logger.info("Root endpoint accessed - serving test interface")
+    if not health.is_development():
+        return JSONResponse(
+            status_code=200,
+            content={"message": "You have accessed Convertifile API's root. Refer to the documentation for usage."},
+        )
+
+    main_logger.info("Root endpoint accessed - serving test interface")
     return FileResponse(str(STATIC_DIR / "index.html"))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -2,20 +2,12 @@
 from PIL import Image
 import io
 from pathlib import Path
-from loguru import logger
 import pymupdf  # PyMuPDF
 
-# Ensure logs directory exists and use it for logging using Pathlib
-BASE_DIR = Path(__file__).resolve().parent.parent
-LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(exist_ok=True)
-LOG_FILE = LOG_DIR / "imgconv.log"
+from logging_utils import get_module_logger
 
-# Add a handler to the existing logger for this module only
-logger.add(LOG_FILE, rotation="10 MB", retention="1 day", filter=lambda record: record["extra"].get("module") == "imageconvert")
-
-# Create a module-specific logger instead of using the global one
-img_logger = logger.bind(module="imageconvert")
+# Create a module-specific logger
+img_logger = get_module_logger("imageconvert")
 
 def _handle_jpeg(img, settings, save_kwargs):
     if img.mode == 'RGBA':

@@ -35,6 +35,7 @@ def _build_processing_response(task_result):
     return response
 
 @router.get("/{task_id}")
+@router.get("/{task_id}/")  
 async def get_status(task_id: str):
     """
     Get the status of a conversion task.

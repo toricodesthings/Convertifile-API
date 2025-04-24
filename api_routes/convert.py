@@ -169,6 +169,7 @@ def get_conversion_settings(convert_to: str, form_data: dict) -> dict:
 router = APIRouter()
 
 @router.post("/")
+@router.post("")
 async def convert_file(
     file: UploadFile = File(...),
     convert_to: str = Form(...),

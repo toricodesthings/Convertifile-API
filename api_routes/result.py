@@ -9,6 +9,7 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 router = APIRouter()
 
 @router.get("/{file_id}")
+@router.get("/{file_id}/")
 async def download_result(file_id: str):
     """
     Download the converted file.

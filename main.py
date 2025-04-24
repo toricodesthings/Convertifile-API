@@ -58,6 +58,7 @@ subapi.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"], 
 )
 
 
@@ -102,21 +103,6 @@ app = FastAPI(
     title="ConvertIFile Service",
     description="File conversion service with multiple endpoints",
     version="1.0.0",
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://localhost:3000",
-        "http://utility.toridoesthings.xyz",
-        "https://utility.toridoesthings.xyz",
-        "http://convertifile.toridoesthings.xyz",
-        "https://convertifile.toridoesthings.xyz"
-    ], 
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
 )
 
 app.mount("/convertifile/", subapi)

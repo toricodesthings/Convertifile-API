@@ -10,6 +10,16 @@ START_TIME = time.time()
 
 router = APIRouter()
 
+# API version info
+API_VERSION = "unknown"
+API_TITLE = "unknown"
+
+# Function to set version info from main app
+def set_version_info(version: str, title: str):
+    global API_VERSION, API_TITLE
+    API_VERSION = version
+    API_TITLE = title
+
 # Function to check if running in Docker
 def is_in_docker():
     # Method 1: Check for .dockerenv file
@@ -33,6 +43,10 @@ def health_check():
     health_data = {
         "status": "normal",
         "timestamp": datetime.now().isoformat(),
+        "api_info": {
+            "title": API_TITLE,
+            "version": API_VERSION
+        },
         "uptime": {
             "seconds": round(uptime_seconds, 2),
             "formatted": f"{int(uptime_seconds // 86400)}d {int((uptime_seconds % 86400) // 3600)}h {int((uptime_seconds % 3600) // 60)}m {int(uptime_seconds % 60)}s"

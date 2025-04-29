@@ -34,16 +34,21 @@ logging.basicConfig(
 
 main_logger.info(f"Created temporary directory at {TEMP_DIR}")
 
+# Versions
+API_VERSION = "1.0.1"
+API_TITLE = "ConvertiFile API"
+
 subapi = FastAPI(
-    title="ConvertIFile API",
-    description="API for converting files between various formats",
-    version="1.0.0",
+    title=API_TITLE,
+    description="Full API for converting files between various formats",
+    version=API_VERSION,
 )
 
 # Add these two lines to register the rate limit handler
 subapi.state.limiter = limiter
 subapi.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+subapi.add_middleware(GZipMiddleware, minimum_size=1000)  # Compress responses > 1KB
 subapi.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -59,8 +64,6 @@ subapi.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"], 
 )
-
-subapi.add_middleware(GZipMiddleware, minimum_size=1000)  # Compress responses > 1KB
 
 @subapi.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -120,6 +123,23 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Middleware to block access to static files in production/Docker
+class StaticFilesAccessMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Check if the request is for static files
+        if request.url.path.startswith("/static/"):
+            # Only allow access in development mode (now checks for Docker)
+            if not health.is_development():
+                return JSONResponse(
+                    status_code=404,
+                    content={"detail": "Not Found"}
+                )
+        
+        return await call_next(request)
+
+# Add middle wares
+app.add_middleware(StaticFilesAccessMiddleware)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -136,28 +156,10 @@ app.add_middleware(
     expose_headers=["*"], 
 )
 
-app.add_middleware(GZipMiddleware, minimum_size=1000)
-
-# Middleware to block access to static files in production/Docker
-class StaticFilesAccessMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        # Check if the request is for static files
-        if request.url.path.startswith("/static/"):
-            # Only allow access in development mode (now checks for Docker)
-            if not health.is_development():
-                return JSONResponse(
-                    status_code=404,
-                    content={"detail": "Not Found"}
-                )
-        
-        return await call_next(request)
-
-# Add the middleware
-app.add_middleware(StaticFilesAccessMiddleware)
-
 # Mount static files conditionally
 if health.is_development():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+health.set_version_info(API_VERSION, API_TITLE)
 
 app.mount("/convertifile/", subapi)
 
@@ -168,7 +170,7 @@ def read_root() -> FileResponse:
     if not health.is_development():
         return JSONResponse(
             status_code=200,
-            content={"message": "You have accessed Convertifile API's root. Refer to the documentation for usage."},
+            content={"message": f"You have accessed Convertifile API's {"Version" + API_VERSION} root. Refer to the documentation for usage."},
         )
 
     main_logger.info("Root endpoint accessed - serving test interface")

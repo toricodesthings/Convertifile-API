@@ -20,13 +20,24 @@ def _handle_jpeg(img, settings, save_kwargs):
     return img
 
 def _handle_webp(img, settings, save_kwargs):
+    # Preserve transparency if present
+    if img.mode in ('RGBA', 'LA'):
+        save_kwargs['lossless'] = settings.get("lossless", False)
+        
+                # Ensure alpha_quality is set for lossy mode with transparency
+        if not save_kwargs.get('lossless'):
+            # Alpha quality controls the compression of the alpha channel
+            # Higher values preserve transparency details better
+            alpha_quality = settings.get("alpha_quality", 100)
+            save_kwargs['alpha_quality'] = alpha_quality
+    # Handle quality setting
     quality = settings.get("quality")
     if quality is not None:
         save_kwargs['quality'] = quality
-    if not settings.get("compression", True):
-        save_kwargs['lossless'] = True
+    # Improve color quantization with higher quality
     if settings.get("optimize"):
         save_kwargs['method'] = 6
+    
     return img
 
 def _handle_png(img, settings, save_kwargs):

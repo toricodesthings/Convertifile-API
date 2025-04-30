@@ -149,8 +149,6 @@ def convert_image(
             img_logger.info(f"Image opened successfully: {img.format} {img.size} {img.mode}")
             output_io = io.BytesIO()
             save_kwargs = {}
-            if settings.get("remove_metadata"):
-                img.info = {}
 
             pil_format = (
                 "JPEG" 
@@ -159,6 +157,9 @@ def convert_image(
             )
             
             img = _apply_format_settings(img, pil_format, settings, save_kwargs)
+
+            if settings.get("remove_metadata"):
+                img.info = {}
 
             img_logger.info(f"Saving image with format {pil_format}, options: {save_kwargs}")
             img.save(output_io, format=pil_format, **save_kwargs)

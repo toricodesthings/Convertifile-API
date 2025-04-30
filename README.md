@@ -1,11 +1,15 @@
 # ConvertiFile API
 
-ConvertiFile is a powerful file conversion API built with FastAPI and Celery that allows you to convert files between various formats:
+## Overview
 
-- **Images**: Convert between JPG, PNG, WebP, BMP, and more
-- **Audio**: Convert between MP3, WAV, OGG, FLAC, and more
-- **Video**: Convert between MP4, WebM, MKV, and more
-- **Documents**: Convert between PDF, TXT, DOCX, and more
+ConvertiFile is a powerful file conversion API built with FastAPI and can be used concurently with Celery which llows the conversion and/or compression of files between various formats:
+
+- **Images**: Convert between JPG, PNG, WebP, BMP, and more (Using PIL)
+- **Audio**: Convert between MP3, WAV, OGG, FLAC, and more (Using FFMpeg)
+- **Video**: Convert between MP4, WebM, MKV, and more (Using FFMpeg)
+- **Documents**: Convert between PDF, TXT, DOCX, and more (Using LibreOffice CLI)
+
+The API has been built to be paired with my own frontend, [Convertifile App](https://convertifile.toridoesthings.xyz)
 
 ## Features
 
@@ -17,12 +21,25 @@ ConvertiFile is a powerful file conversion API built with FastAPI and Celery tha
 
 ## Prerequisites
 
-- Python 3.12+
+- Python 3.13+
 - Redis server (for Celery task queue)
 - FFmpeg (for audio/video conversion)
+- Pillow
 - Libreoffice CLI
 
+## Docker Support
+
+ The API has been Dockerized, it is recommended that the api be ran within a docker container on a standalone drive/volume
+
+### Build & Run the Docker image:
+
+```bash
+docker-compose up --build
+```
+
 ## Installation
+
+If you prefer running the API directly without Docker, the instructions are below:
 
 ### 1. Clone the repository
 
@@ -104,20 +121,22 @@ celery -A celery_workers worker --loglevel=info
 ### 3. Start the FastAPI server
 
 ```bash
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 9003
 ```
+
+(Port can be anything you want. Add --proxy-headers if you are using a reverse proxy pointing to the API)
 
 ## API Endpoints
 
 ### Web Interface
-- **GET /** - Access the web test interface
+- **GET /** - Access the web test interface (Development Environment Only)
 
 ### File Conversion
 - **POST /convertifileapp/convert** - Submit a file for conversion
   - Parameters (form data):
     - `file`: The file to convert
     - `convert_to`: Target format (e.g., 'mp3', 'jpg')
-    - `remove_metadata`: Whether to strip metadata (boolean)
+    - `format-settings`: Various settings
 
 ### Status Checking
 - **GET /convertifileapp/status/{task_id}** - Check the status of a conversion task
@@ -128,17 +147,11 @@ uvicorn main:app --reload --port 8000
 ### Health Check
 - **GET /convertifileapp/health** - Check API health status
 
-## API Documentation
-
-After starting the server, you can access the interactive API documentation at:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
 ## File Support
 
 ### Images
-- Input formats: JPG, PNG, WebP, GIF, BMP, TIFF
-- Output formats: JPG, PNG, WebP, GIF, BMP, TIFF
+- Input formats: JPG, PNG, WebP, BMP, TIFF, HEIF
+- Output formats: JPG, PNG, WebP, BMP, TIFF, HEIF
 
 ### Audio
 - Input formats: MP3, WAV, AAC, FLAC, OGG, OPUS, M4A, WMA
@@ -151,16 +164,6 @@ After starting the server, you can access the interactive API documentation at:
 ### Documents
 - Input formats: PDF, DOCX, TXT
 - Output formats: PDF, DOCX, TXT
-
-## Docker Support
-
- The API has been Dockerized, it is recommended that the api be ran within a docker container on a standalone drive/volume
-
-### Build & Run the Docker image:
-
-```bash
-docker-compose up --build
-```
 
 ## License
 

@@ -2,22 +2,25 @@
 
 ## Overview
 
-ConvertiFile is a powerful file conversion API built with FastAPI and can be used concurently with Celery which llows the conversion and/or compression of files between various formats:
+ConvertiFile is a powerful file conversion API built with FastAPI and can be used concurently with Celery which allows the conversion and/or compression of files between various formats. The API was adapted and rewritten from a previous file converter project used internally.
+
+Formats include:
 
 - **Images**: Convert between JPG, PNG, WebP, BMP, and more (Using PIL)
 - **Audio**: Convert between MP3, WAV, OGG, FLAC, and more (Using FFMpeg)
 - **Video**: Convert between MP4, WebM, MKV, and more (Using FFMpeg)
 - **Documents**: Convert between PDF, TXT, DOCX, and more (Using LibreOffice CLI)
 
-The API has been built to be paired with my own frontend, [Convertifile App](https://convertifile.toridoesthings.xyz)
+The API has been rebuilt to be paired with my own frontend for the best experience, [Convertifile App](https://convertifile.toridoesthings.xyz)
 
 ## Features
 
 - **Asynchronous Processing**: Large file conversions run in the background
 - **Progress Tracking**: Track the status of your conversions
-- **Metadata Removal**: Optionally strip metadata from files
+- **Comprehensive Settings**: Customizable Settings (and expandable)
 - **API**: Easy-to-use REST API
-- **Web Interface**: Built-in test interface
+- **Testing Interface**: Built-in test interface
+- **Video to Gif Tool**: Converting a given video into GIF format (*Under Construction*)
 
 ## Prerequisites
 
@@ -164,6 +167,12 @@ uvicorn main:app --reload --port 9003
 ### Documents
 - Input formats: PDF, DOCX, TXT
 - Output formats: PDF, DOCX, TXT
+
+## To-Do
+
+- Cleanup, Refactor and Improve speed of video conversion
+- Video to GIF Tool
+- Better Documentation
 
 ## License
 

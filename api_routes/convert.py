@@ -9,6 +9,8 @@ MAX_FILE_SIZE_VIDEO = 1024 * 1024 * 1024   # 1GB
 MAX_FILE_SIZE_AUDIO = 500 * 1024 * 1024    # 500MB
 MAX_FILE_SIZE_DOC   = 100 * 1024 * 1024    # 100MB
 
+RATE_LIMIT = "25/hour"  # Rate limit for the endpoint
+
 ALLOWED_MIME_PREFIXES = ['image/', 'audio/', 'video/', 'application/pdf', 'text/']
 
 SUSPICIOUS_PATTERNS = [
@@ -171,7 +173,7 @@ router = APIRouter()
 
 @router.post("/")
 @router.post("")
-@limiter.limit("25/hour")
+@limiter.limit(RATE_LIMIT)
 async def convert_file(
     request: Request,  # Required for rate limiter
     file: UploadFile = File(...),

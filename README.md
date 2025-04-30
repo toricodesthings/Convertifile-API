@@ -1,6 +1,6 @@
 # ConvertiFile API
 
-## Overview
+## Introduction
 
 ConvertiFile is a powerful file conversion API built with FastAPI and can be used concurently with Celery which allows the conversion and/or compression of files between various formats. The API was adapted and rewritten from a previous file converter project used internally.
 
@@ -18,7 +18,7 @@ The API has been rebuilt to be paired with my own frontend for the best experien
 - **Asynchronous Processing**: Large file conversions run in the background
 - **Progress Tracking**: Track the status of your conversions
 - **Comprehensive Settings**: Customizable Settings (and expandable)
-- **API**: Easy-to-use REST API
+- **API**: Easy-to-use REST API with built-in Rate Limiting
 - **Testing Interface**: Built-in test interface
 - **Video to Gif Tool**: Converting a given video into GIF format (*Under Construction*)
 
